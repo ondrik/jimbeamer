@@ -7,15 +7,15 @@ tests need, and it lives here rather than in every test module.
 """
 
 import argparse
-import importlib.machinery
-import importlib.util
 import os
+import sys
 
 import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRIPT = os.path.join(ROOT, 'jimbeamer')
-TEMPLATE = os.path.join(ROOT, 'beamer.tex.tpl')
+PACKAGE = os.path.join(ROOT, 'jimbeamer')
+SCRIPT = os.path.join(PACKAGE, 'converter.py')
+TEMPLATE = os.path.join(PACKAGE, 'beamer.tex.tpl')
 
 # A whole presentation in miniature, exercising every construct the renderer
 # knows: metadata (including a commented-out line, which is legal Markdown
@@ -146,18 +146,26 @@ def _read(path):
 
 @pytest.fixture(scope='session')
 def jimbeamer():
-    """The script, imported as a module."""
-    loader = importlib.machinery.SourceFileLoader('jimbeamer', SCRIPT)
-    spec = importlib.util.spec_from_loader(loader.name, loader)
-    module = importlib.util.module_from_spec(spec)
-    loader.exec_module(module)
-    return module
+    """The converter, imported as a module.
+
+The checkout rather than whatever is installed, so that the tests are always
+about the tree they sit in.
+"""
+    if ROOT not in sys.path:
+        sys.path.insert(0, ROOT)
+    import jimbeamer.converter
+
+    return jimbeamer.converter
 
 
 @pytest.fixture(scope='session')
 def script():
-    """Path to the script, for running it as a command."""
-    return SCRIPT
+    """The command, as a list to run with subprocess.
+
+'python -m jimbeamer' from the checkout, which is what pip's console script
+does once installed, without needing it installed to test.
+"""
+    return [sys.executable, '-m', 'jimbeamer']
 
 
 @pytest.fixture(scope='session')

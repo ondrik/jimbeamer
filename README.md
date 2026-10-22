@@ -51,46 +51,34 @@ For every \emph{regular} language $L$ there is an $n$.
 
 ## Installing
 
-There is no package: `jimbeamer` is one executable script that reads one
-template file sitting beside it.
+```console
+$ pipx install jimbeamer
+```
+
+[pipx](https://pipx.pypa.io/) puts the command on your `PATH` in an
+environment of its own, which is what a command-line tool wants and what
+sidesteps the `error: externally-managed-environment` that a plain
+`pip install` meets on Debian, Ubuntu and every other
+[PEP 668](https://peps.python.org/pep-0668/) Python. `pip install jimbeamer`
+inside a virtual environment does the same job.
+
+The two runtime dependencies, `marko` (>= 2.2) and `PyYAML` (>= 6.0), come
+with it. Python 3.9 or newer.
+
+To work on it instead, or to get the vim syntax file, clone it:
 
 ```console
 $ git clone https://github.com/ondrik/jimbeamer.git
 $ cd jimbeamer
-$ pip install -r requirements.txt
-$ ./jimbeamer deck.md -o deck.tex
+$ pip install -e '.[test]'
+$ jimbeamer deck.md -o deck.tex
 ```
 
-The two runtime dependencies are `marko` (>= 2.2) and `PyYAML` (>= 6.0), both
-hard imports — without them the script does not start. Python 3.9 or newer.
+`python -m jimbeamer` is the same command spelled the other way, and works
+without installing anything as long as the checkout is on `PYTHONPATH`.
 
-On Debian, Ubuntu and anything else that ships a
-[PEP 668](https://peps.python.org/pep-0668/) Python, that `pip install` is
-refused with `error: externally-managed-environment`. Use a virtual
-environment — on Debian and Ubuntu `python3 -m venv` is a package of its own,
-so `sudo apt install python3-venv` (or `python3-full`) comes first:
-
-```console
-$ python3 -m venv .venv && . .venv/bin/activate
-$ pip install -r requirements.txt
-```
-
-or, if you would rather not, `pip install --user --break-system-packages -r
-requirements.txt`.
-
-The executable bit is committed, so no `chmod` is needed. To put it on your
-`PATH`, **symlink** it rather than copying it:
-
-```console
-$ ln -s ~/src/jimbeamer/jimbeamer ~/.local/bin/jimbeamer
-```
-
-The script resolves its template through `realpath(__file__)`, so a symlink
-still finds `beamer.tex.tpl` back in the repository. A bare *copy* of the
-script fails with `cannot open the default template '...'` — for that, set
-`JIMBEAMER_TEMPLATE` to the template's path. If you installed into a venv,
-remember that `#!/usr/bin/env python3` picks up whichever Python is on the
-`PATH` at the time, so a symlink only works while that venv is active.
+The Beamer preamble travels with the package, so there is nothing to put
+beside the command; `JIMBEAMER_TEMPLATE` points at one of your own.
 
 `--pdf` additionally needs a TeX installation with beamer, listings, lmodern,
 graphicx, color, xspace and (optionally, but do have it) upquote. Only upquote

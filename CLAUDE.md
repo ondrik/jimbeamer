@@ -16,20 +16,22 @@ and escape nothing.
     jimbeamer --pdf deck.md           # convert and build the PDF
     pytest                           # the suite; all of it should pass
 
-Dependencies are in `requirements.txt`: `marko` and `PyYAML`, both hard
-imports. `pytest` for the tests and a TeX installation for `--pdf` are noted
-there too, as comments, so that installing the file does not drag them in.
+Dependencies are declared in `pyproject.toml`: `marko` and `PyYAML`, both
+hard imports, with `pytest` under the `test` extra so that installing the
+package does not drag it in. A TeX installation is wanted only for `--pdf`,
+and is nobody's dependency to declare.
 
 ## Files
 
 | File | What it is |
 |---|---|
-| `jimbeamer` | the whole converter, one executable script, no `.py` suffix |
-| `beamer.tex.tpl` | the Beamer preamble, external on purpose |
+| `jimbeamer/converter.py` | the whole converter, one module |
+| `jimbeamer/__init__.py` | what `pip` installs the `jimbeamer` command against |
+| `jimbeamer/beamer.tex.tpl` | the Beamer preamble, external on purpose, and shipped as package data |
+| `pyproject.toml` | the package: dependencies, the console script, the metadata |
 | `tests/conftest.py` | fixtures, and `EXAMPLE` — the presentation in miniature that stands in for the lecture, which is not in this repository |
 | `tests/test_jimbeamer.py` | the suite |
 | `tests/test_vim.py` | the syntax file, checked by asking vim what it coloured |
-| `requirements.txt` | the two runtime dependencies |
 | `pytest.ini` | testpaths, and deprecation warnings promoted to errors |
 | `README.md` | how to install it, how to use it, and the input format in full |
 | `TODO.md` | what is missing, wrong, or undecided |

@@ -18,6 +18,8 @@ import zlib
 
 import pytest
 
+import conftest
+
 
 def doc(text):
     """doc(str) -> str: a readable inline document fixture."""
@@ -2568,15 +2570,26 @@ def test_the_deck_compiles(tmp_path, script, deck, deck_path):
 ###########################################
 
 def run(script, *argv, stdin=None):
-    """Run the script as a command.  UTF-8 explicitly, so that the non-ASCII
-    test exercises the script rather than the locale of whoever runs pytest.
+    """Run the command.  UTF-8 explicitly, so that the non-ASCII test
+    exercises the converter rather than the locale of whoever runs pytest.
+
+    PYTHONPATH is the checkout, so that it is this tree being tested and not
+    whatever happens to be installed.
     """
-    return subprocess.run([script] + list(argv), input=stdin,
-                          capture_output=True, encoding='utf-8')
+    environment = dict(os.environ)
+    environment['PYTHONPATH'] = (conftest.ROOT + os.pathsep
+                                 + environment.get('PYTHONPATH', ''))
+    return subprocess.run(list(script) + list(argv), input=stdin,
+                          capture_output=True, encoding='utf-8',
+                          env=environment)
 
 
-def test_cli_is_executable(script):
-    assert os.access(script, os.X_OK), 'jimbeamer is not executable'
+def test_the_package_has_a_command_to_install(jimbeamer):
+    """pip installs 'jimbeamer' as a console script pointing here, so the
+    entry point in pyproject.toml has to keep finding it."""
+    import jimbeamer as package
+
+    assert callable(package.main)
 
 
 def test_cli_version(script, jimbeamer):

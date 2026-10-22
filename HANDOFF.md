@@ -20,11 +20,11 @@ progress and nothing uncommitted.
 
     git clone git@github.com:ondrik/jimbeamer.git
     cd jimbeamer
+    pip install -e '.[test]'
     pytest                      # the suite; all of it should pass
 
-Installing the two dependencies, the PEP 668 `externally-managed-environment`
-refusal that stops `pip install -r requirements.txt` on Debian and Ubuntu,
-putting the script on your `PATH`, and building a PDF are all in `README.md`.
+Installing it as a command rather than as a checkout, and what `--pdf` wants
+from a TeX installation, are in `README.md`.
 
 Branch is `master`, level with `origin/master`.
 
