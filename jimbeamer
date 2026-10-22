@@ -25,11 +25,11 @@ import sys
 import tempfile
 import yaml
 
-PROG = 'mdslides'
+PROG = 'jimbeamer'
 VERSION = '0.1'
 
 DEFAULT_TEMPLATE = 'beamer.tex.tpl'
-TEMPLATE_ENV_VAR = 'MD_SLIDES_TEMPLATE'
+TEMPLATE_ENV_VAR = 'JIMBEAMER_TEMPLATE'
 
 # string.Template has no conditionals, so a variable the template mentions
 # must always resolve to something: an unsubstituted '$theme' would reach
@@ -339,7 +339,7 @@ YAML_COMMENT_RE = re.compile(r'^[ \t]*<!--.*?-->[ \t]*$\n?', re.MULTILINE)
 def find_template():
     """find_template() -> str
 
-Returns the path to the default template: the one named by $MD_SLIDES_TEMPLATE
+Returns the path to the default template: the one named by $JIMBEAMER_TEMPLATE
 if set, otherwise the one shipped next to this script.
 """
     from_env = os.environ.get(TEMPLATE_ENV_VAR)
@@ -2289,7 +2289,7 @@ def parse_args(argv=None):
 
     # Opening the output truncates it, and that happens before a byte of the
     # input is read -- so if the two are the same file the deck is destroyed
-    # and the frames come out empty.  'mdslides --pdf deck.tex' is the way in:
+    # and the frames come out empty.  'jimbeamer --pdf deck.tex' is the way in:
     # splitext() hands back the name it was given.
     if args.file != '-' and args.output != '-' and same_file(args.file,
                                                              args.output):

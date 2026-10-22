@@ -1,6 +1,6 @@
 """Shared fixtures.
 
-mdslides is spelled without a '.py' suffix so that it can be run as a
+jimbeamer is spelled without a '.py' suffix so that it can be run as a
 command, which means the ordinary import machinery cannot find it.  Point a
 loader straight at the file instead; that is the only bit of awkwardness the
 tests need, and it lives here rather than in every test module.
@@ -14,7 +14,7 @@ import os
 import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRIPT = os.path.join(ROOT, 'mdslides')
+SCRIPT = os.path.join(ROOT, 'jimbeamer')
 TEMPLATE = os.path.join(ROOT, 'beamer.tex.tpl')
 
 # A whole presentation in miniature, exercising every construct the renderer
@@ -145,9 +145,9 @@ def _read(path):
 
 
 @pytest.fixture(scope='session')
-def mdslides():
+def jimbeamer():
     """The script, imported as a module."""
-    loader = importlib.machinery.SourceFileLoader('mdslides', SCRIPT)
+    loader = importlib.machinery.SourceFileLoader('jimbeamer', SCRIPT)
     spec = importlib.util.spec_from_loader(loader.name, loader)
     module = importlib.util.module_from_spec(spec)
     loader.exec_module(module)
@@ -187,39 +187,39 @@ def deck_path(tmp_path_factory):
 
 
 @pytest.fixture
-def opts(mdslides):
+def opts(jimbeamer):
     """Factory for a stand-in of the parsed command line options."""
     def make(**overrides):
         values = {'dump_ast': False, 'slide_level': 1, 'variable': {},
-                  'escapechar': mdslides.LISTINGS_ESCAPECHAR}
+                  'escapechar': jimbeamer.LISTINGS_ESCAPECHAR}
         values.update(overrides)
         return argparse.Namespace(**values)
     return make
 
 
 @pytest.fixture
-def convert(mdslides, template, opts):
+def convert(jimbeamer, template, opts):
     """Run the whole pipeline with the default template."""
     def run(text, **overrides):
-        return mdslides.convert(text, template, opts(**overrides))
+        return jimbeamer.convert(text, template, opts(**overrides))
     return run
 
 
 @pytest.fixture
-def render(mdslides, opts):
+def render(jimbeamer, opts):
     """Render a Markdown body to Beamer, without the template around it."""
     def run(text, **overrides):
-        return mdslides.make_markdown(opts(**overrides)).convert(text)
+        return jimbeamer.make_markdown(opts(**overrides)).convert(text)
     return run
 
 
 @pytest.fixture
-def parse_args(mdslides):
+def parse_args(jimbeamer):
     """parse_args(), closing any file it opened on the way out."""
     opened = []
 
     def run(argv):
-        args = mdslides.parse_args(argv)
+        args = jimbeamer.parse_args(argv)
         opened.append(args.template)
         return args
 

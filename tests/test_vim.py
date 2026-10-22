@@ -103,7 +103,7 @@ qall!
 """
 
 
-def run_vim(tmp_path, text, filetype='mdslides'):
+def run_vim(tmp_path, text, filetype='jimbeamer'):
     """run_vim(Path, str, str) -> [(str, [str])]
 
 Opens `text' in vim under the syntax file and returns, for each line, the
@@ -165,27 +165,27 @@ def example(tmp_path_factory):
 
 @vim_needed
 @pytest.mark.parametrize('needle, group', [
-    pytest.param("title: 'Symbolic Execution'", 'mdslidesMetaKey', id='meta'),
-    pytest.param('# A heading', 'mdslidesHeading', id='heading'),
-    pytest.param('{.fragile #intro}', 'mdslidesClass', id='class'),
-    pytest.param('{.fragile #intro}', 'mdslidesLabel', id='label'),
-    pytest.param('% a comment line', 'mdslidesComment', id='comment'),
-    pytest.param('\\pausex', 'mdslidesPause', id='pause'),
-    pytest.param('title: A slide', 'mdslidesSlideKey', id='slide-key'),
-    pytest.param('nosuchkey: 1', 'mdslidesMetaKey', id='unknown-slide-key'),
-    pytest.param('@columns', 'mdslidesDirective', id='directive'),
-    pytest.param('@end', 'mdslidesDirectiveEnd', id='directive-end'),
-    pytest.param('int main(void)', 'mdslidesCodeFence', id='code-fence'),
-    pytest.param('KLEE & a symbolic', 'mdslidesLatexEnv', id='latex-env'),
-    pytest.param('$x_1 \\land y_2$', 'mdslidesMath', id='maths'),
-    pytest.param('\\[\\bigvee_i', 'mdslidesMathBracket', id='display-maths'),
-    pytest.param('\\(x_3\\)', 'mdslidesMathParen', id='latex-inline-maths'),
-    pytest.param('(a) a lettered', 'mdslidesListMarker', id='lettered'),
-    pytest.param('(ii) a roman', 'mdslidesListMarker', id='roman'),
-    pytest.param('2. a plain one', 'mdslidesListMarker', id='plain-ordered'),
-    pytest.param('==highlighted==', 'mdslidesHighlight', id='highlight'),
-    pytest.param('[red]{.hlrd}', 'mdslidesSpan', id='span'),
-    pytest.param('![A caption]', 'mdslidesImage', id='image'),
+    pytest.param("title: 'Symbolic Execution'", 'jimbeamerMetaKey', id='meta'),
+    pytest.param('# A heading', 'jimbeamerHeading', id='heading'),
+    pytest.param('{.fragile #intro}', 'jimbeamerClass', id='class'),
+    pytest.param('{.fragile #intro}', 'jimbeamerLabel', id='label'),
+    pytest.param('% a comment line', 'jimbeamerComment', id='comment'),
+    pytest.param('\\pausex', 'jimbeamerPause', id='pause'),
+    pytest.param('title: A slide', 'jimbeamerSlideKey', id='slide-key'),
+    pytest.param('nosuchkey: 1', 'jimbeamerMetaKey', id='unknown-slide-key'),
+    pytest.param('@columns', 'jimbeamerDirective', id='directive'),
+    pytest.param('@end', 'jimbeamerDirectiveEnd', id='directive-end'),
+    pytest.param('int main(void)', 'jimbeamerCodeFence', id='code-fence'),
+    pytest.param('KLEE & a symbolic', 'jimbeamerLatexEnv', id='latex-env'),
+    pytest.param('$x_1 \\land y_2$', 'jimbeamerMath', id='maths'),
+    pytest.param('\\[\\bigvee_i', 'jimbeamerMathBracket', id='display-maths'),
+    pytest.param('\\(x_3\\)', 'jimbeamerMathParen', id='latex-inline-maths'),
+    pytest.param('(a) a lettered', 'jimbeamerListMarker', id='lettered'),
+    pytest.param('(ii) a roman', 'jimbeamerListMarker', id='roman'),
+    pytest.param('2. a plain one', 'jimbeamerListMarker', id='plain-ordered'),
+    pytest.param('==highlighted==', 'jimbeamerHighlight', id='highlight'),
+    pytest.param('[red]{.hlrd}', 'jimbeamerSpan', id='span'),
+    pytest.param('![A caption]', 'jimbeamerImage', id='image'),
 ])
 def test_the_construct_is_coloured(sample, needle, group):
     assert group in groups_on(sample, needle), \
@@ -195,14 +195,14 @@ def test_the_construct_is_coloured(sample, needle, group):
 @vim_needed
 def test_a_slide_key_it_knows_is_told_from_one_it_does_not(sample):
     """So a typo is visible before the converter warns about it."""
-    assert 'mdslidesSlideKey' in groups_on(sample, 'title: A slide')
-    assert 'mdslidesSlideKey' not in groups_on(sample, 'nosuchkey: 1')
+    assert 'jimbeamerSlideKey' in groups_on(sample, 'title: A slide')
+    assert 'jimbeamerSlideKey' not in groups_on(sample, 'nosuchkey: 1')
 
 
 @vim_needed
 @pytest.mark.parametrize('needle, group', [
-    pytest.param('a span that [wraps across', 'mdslidesSpan', id='span'),
-    pytest.param('that wraps== too', 'mdslidesHighlight', id='highlight'),
+    pytest.param('a span that [wraps across', 'jimbeamerSpan', id='span'),
+    pytest.param('that wraps== too', 'jimbeamerHighlight', id='highlight'),
 ])
 def test_an_inline_span_may_wrap(sample, needle, group):
     """Prose is wrapped, and the converter reads these across a line break.
@@ -215,9 +215,9 @@ side."""
 def test_a_lone_break_is_a_break_and_a_fence_is_a_fence(sample):
     """The '---' that closes a slide's metadata and the one that starts an
 untitled frame are the same characters, and must not be the same colour."""
-    assert groups_on(sample, '---')[0] == 'mdslidesMetaFence'
+    assert groups_on(sample, '---')[0] == 'jimbeamerMetaFence'
     lone = [groups for line, groups in sample
-            if line.strip() == '---' and groups == ['mdslidesBreak']]
+            if line.strip() == '---' and groups == ['jimbeamerBreak']]
     assert lone, 'expected a thematic break somewhere'
 
 
@@ -233,7 +233,7 @@ untitled frame are the same characters, and must not be the same colour."""
 ])
 def test_a_letter_and_a_full_stop_is_not_a_list(prose, needle):
     """The converter needs a parenthesis for a letter, and so does this."""
-    assert 'mdslidesListMarker' not in groups_on(prose, needle)
+    assert 'jimbeamerListMarker' not in groups_on(prose, needle)
 
 
 @vim_needed
@@ -251,7 +251,7 @@ file, which is how it drifted behind twice before."""
 def test_the_example_deck_is_recognized_as_ours(example):
     """And that it is this syntax doing the work, not markdown's alone."""
     seen = {group for _, groups in example for group in groups}
-    assert {'mdslidesDirective', 'mdslidesMath', 'mdslidesSlideKey'} <= seen
+    assert {'jimbeamerDirective', 'jimbeamerMath', 'jimbeamerSlideKey'} <= seen
 
 
 ###########################################
@@ -268,7 +268,7 @@ DETECT_CASES = {
     'about.md': ('# About the format\n\nA slide may say what it is:\n\n'
                  '```markdown\n===\ntitle: T\n---\n\n@columns\n@end\n'
                  '```\n\nand that is all.\n'),
-    'explicit.mdslides': '# No markers at all\n\n* just bullets\n',
+    'explicit.jimd': '# No markers at all\n\n* just bullets\n',
 }
 
 
@@ -310,10 +310,10 @@ def detected(tmp_path_factory):
     pytest.param('directive.md', id='directive'),
     pytest.param('slidemeta.md', id='slide-metadata'),
     pytest.param('pause.md', id='pause'),
-    pytest.param('explicit.mdslides', id='by-extension'),
+    pytest.param('explicit.jimd', id='by-extension'),
 ])
 def test_a_deck_is_detected(detected, name):
-    assert detected[name] == 'mdslides'
+    assert detected[name] == 'jimbeamer'
 
 
 @vim_needed

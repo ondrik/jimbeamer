@@ -1,11 +1,11 @@
-# mdslides
+# jimbeamer
 
 Turns Markdown into LaTeX Beamer slides. A lightweight alternative to
 `pandoc -t beamer`, built on [marko](https://github.com/frostming/marko).
 
 ```console
-$ mdslides deck.md -o deck.tex     # convert
-$ mdslides --pdf deck.md           # convert, and build the PDF
+$ jimbeamer deck.md -o deck.tex     # convert
+$ jimbeamer --pdf deck.md           # convert, and build the PDF
 ```
 
 The guiding principle is **LaTeX passthrough**: whatever the Markdown parser
@@ -51,14 +51,14 @@ For every \emph{regular} language $L$ there is an $n$.
 
 ## Installing
 
-There is no package: `mdslides` is one executable script that reads one
+There is no package: `jimbeamer` is one executable script that reads one
 template file sitting beside it.
 
 ```console
-$ git clone https://github.com/ondrik/mdslides.git
-$ cd mdslides
+$ git clone https://github.com/ondrik/jimbeamer.git
+$ cd jimbeamer
 $ pip install -r requirements.txt
-$ ./mdslides deck.md -o deck.tex
+$ ./jimbeamer deck.md -o deck.tex
 ```
 
 The two runtime dependencies are `marko` (>= 2.2) and `PyYAML` (>= 6.0), both
@@ -82,13 +82,13 @@ The executable bit is committed, so no `chmod` is needed. To put it on your
 `PATH`, **symlink** it rather than copying it:
 
 ```console
-$ ln -s ~/src/mdslides/mdslides ~/.local/bin/mdslides
+$ ln -s ~/src/jimbeamer/jimbeamer ~/.local/bin/jimbeamer
 ```
 
 The script resolves its template through `realpath(__file__)`, so a symlink
 still finds `beamer.tex.tpl` back in the repository. A bare *copy* of the
 script fails with `cannot open the default template '...'` — for that, set
-`MD_SLIDES_TEMPLATE` to the template's path. If you installed into a venv,
+`JIMBEAMER_TEMPLATE` to the template's path. If you installed into a venv,
 remember that `#!/usr/bin/env python3` picks up whichever Python is on the
 `PATH` at the time, so a symlink only works while that venv is active.
 
@@ -117,16 +117,16 @@ patterns, if your TeX has the language pack.
 
 ## Using it
 
-`mdslides` is a filter: it reads the file you name (or standard input) and
+`jimbeamer` is a filter: it reads the file you name (or standard input) and
 writes LaTeX to `-o` (or standard output). Its own diagnostics go to standard
 error, so the LaTeX on standard output stays clean; the one thing that does
 not is the LaTeX engine under `--verbose-latex`, which inherits standard
 output.
 
 ```console
-$ mdslides deck.md > deck.tex          # same as -o deck.tex
-$ cat deck.md | mdslides | less        # both ends are streams
-$ mdslides --pdf deck.md               # writes deck.tex, then builds deck.pdf
+$ jimbeamer deck.md > deck.tex          # same as -o deck.tex
+$ cat deck.md | jimbeamer | less        # both ends are streams
+$ jimbeamer --pdf deck.md               # writes deck.tex, then builds deck.pdf
 ```
 
 | Option | Meaning |
@@ -141,7 +141,7 @@ $ mdslides --pdf deck.md               # writes deck.tex, then builds deck.pdf
 | `-p, --pdf` | run the LaTeX engine on the result as well |
 | `--verbose-latex` | show the engine's output instead of just its errors |
 | `-d, --dump-ast` | dump the parsed Markdown tree to stderr |
-| `--version` | print `mdslides 0.1` |
+| `--version` | print `jimbeamer 0.1` |
 
 `-V` is applied to the metadata *before* anything is derived from it, so
 `-V title=X` also reaches the short title in the footline. It takes any
@@ -149,8 +149,8 @@ metadata key, and the value may itself contain `=`; the last one wins. Use it
 for the keys that have no flag of their own:
 
 ```console
-$ mdslides deck.md -V smart=false -V highlight=alert -V theme=metropolis
-$ mdslides deck.md -V toc=true -V toc-title=Plan
+$ jimbeamer deck.md -V smart=false -V highlight=alert -V theme=metropolis
+$ jimbeamer deck.md -V toc=true -V toc-title=Plan
 ```
 
 Booleans accept `true`/`false`, `yes`/`no`, `on`/`off`, `1`/`0` and the empty
@@ -164,14 +164,14 @@ once, if the first pass already fails, since a failing run stops there. It
 announces each run on stderr, runs in the directory of the
 `.tex`, exits with the engine's own status, and leaves the `.tex` and every
 aux file behind. Without `-o` the output name comes from the input, so
-`mdslides --pdf slides/deck.md` writes `slides/deck.tex` and builds
+`jimbeamer --pdf slides/deck.md` writes `slides/deck.tex` and builds
 `slides/deck.pdf`.
 
 Note that **most LaTeX errors are not echoed**. The engine is run with
 `-file-line-error`, which rewrites errors as `./deck.tex:150: Undefined
 control sequence.`, and only lines starting with `!` are lifted out of the
 log — which in practice means missing packages and little else. When a build
-fails with nothing but `mdslides: see /path/deck.log`, open that log, or
+fails with nothing but `jimbeamer: see /path/deck.log`, open that log, or
 re-run with `--verbose-latex`.
 
 
@@ -589,7 +589,7 @@ pandoc drops it.
 The path is passed through untouched, so LaTeX resolves it relative to the
 generated `.tex`, not to the Markdown — and `--pdf` runs the engine in the
 `.tex`'s own directory. Keep the two together, or, when `-o` writes elsewhere
-(`mdslides deck/s.md -o build/s.tex`), point LaTeX back with
+(`jimbeamer deck/s.md -o build/s.tex`), point LaTeX back with
 `\graphicspath{{../deck/}}` in `header-includes`. A missing image is one of
 the errors `--pdf` does not echo: you get only the name of the log.
 
@@ -764,7 +764,7 @@ Two more consequences of the same rule:
 
 The ones that have actually cost time:
 
-* **`mdslides --pdf deck.tex` is refused.** With `--pdf` and no `-o` the
+* **`jimbeamer --pdf deck.tex` is refused.** With `--pdf` and no `-o` the
   output name is the input with its extension replaced, so for a `.tex` input
   the two coincide — which used to destroy the deck. It is now an error, as is
   `-o` naming the input. The document is written to a temporary file and
@@ -833,7 +833,7 @@ Most of a pandoc beamer deck converts unchanged. What does not:
 
 The preamble lives in `beamer.tex.tpl`, an ordinary
 [`string.Template`](https://docs.python.org/3/library/string.html#template-strings).
-Point at your own with `-t`, or with `MD_SLIDES_TEMPLATE`; `-t` wins.
+Point at your own with `-t`, or with `JIMBEAMER_TEMPLATE`; `-t` wins.
 
 The only variable a template must have is `$slides` — but the LaTeX that goes
 into it is not self-contained. A template of your own must also load
@@ -865,8 +865,8 @@ rather than exceptional — a `\begin{...}` environment is taken verbatim here,
 and is coloured as the content it is.
 
 ```console
-$ mkdir -p ~/.vim/pack/mdslides/start
-$ ln -s ~/src/mdslides/vim ~/.vim/pack/mdslides/start/mdslides
+$ mkdir -p ~/.vim/pack/jimbeamer/start
+$ ln -s ~/src/jimbeamer/vim ~/.vim/pack/jimbeamer/start/jimbeamer
 ```
 
 A deck is an ordinary `.md` file, so there is no extension to go by and
@@ -876,10 +876,10 @@ that means nothing in Markdown and something here — a `@directive` opening a
 line, a `===` block, or a `\pausex`. Fenced code is skipped while looking, so
 a document *about* the format is not mistaken for one written in it.
 
-To settle it by hand, name the file `.mdslides`, or end the deck with
+To settle it by hand, name the file `.jimd`, or end the deck with
 
 ```markdown
-<!-- vim: set filetype=mdslides: -->
+<!-- vim: set filetype=jimbeamer: -->
 ```
 
 ## Developing

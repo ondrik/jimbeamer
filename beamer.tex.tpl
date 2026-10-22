@@ -1,4 +1,4 @@
-%% Beamer template for mdslides.
+%% Beamer template for jimbeamer.
 %%
 %% The variables below are filled in from the YAML metadata block at the top
 %% of the Markdown source, or from -V.  string.Template has no

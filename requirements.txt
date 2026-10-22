@@ -1,4 +1,4 @@
-# Runtime requirements for mdslides:
+# Runtime requirements for jimbeamer:
 #
 #     pip install -r requirements.txt
 #

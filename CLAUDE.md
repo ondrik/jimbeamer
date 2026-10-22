@@ -1,4 +1,4 @@
-# mdslides
+# jimbeamer
 
 Converts Markdown into LaTeX Beamer slides. A lightweight alternative to
 `pandoc -t beamer`, built on [marko](https://github.com/frostming/marko).
@@ -12,8 +12,8 @@ comment. A code span is not inviolable even so — maths and raw LaTeX are
 claimed ahead of it, so `` `$x$` `` and `` `\ldots` `` keep their backticks
 and escape nothing.
 
-    mdslides deck.md -o deck.tex     # convert
-    mdslides --pdf deck.md           # convert and build the PDF
+    jimbeamer deck.md -o deck.tex     # convert
+    jimbeamer --pdf deck.md           # convert and build the PDF
     pytest                           # the suite; all of it should pass
 
 Dependencies are in `requirements.txt`: `marko` and `PyYAML`, both hard
@@ -24,10 +24,10 @@ there too, as comments, so that installing the file does not drag them in.
 
 | File | What it is |
 |---|---|
-| `mdslides` | the whole converter, one executable script, no `.py` suffix |
+| `jimbeamer` | the whole converter, one executable script, no `.py` suffix |
 | `beamer.tex.tpl` | the Beamer preamble, external on purpose |
 | `tests/conftest.py` | fixtures, and `EXAMPLE` — the presentation in miniature that stands in for the lecture, which is not in this repository |
-| `tests/test_mdslides.py` | the suite |
+| `tests/test_jimbeamer.py` | the suite |
 | `tests/test_vim.py` | the syntax file, checked by asking vim what it coloured |
 | `requirements.txt` | the two runtime dependencies |
 | `pytest.ini` | testpaths, and deprecation warnings promoted to errors |
@@ -53,7 +53,7 @@ the code. This section used to hold that account and no longer does: one
 description of the format, not two that drift apart.
 
 What the README does not say is which names implement it. The tables are all
-near the top of `mdslides`:
+near the top of `jimbeamer`:
 
 | Constant | What it decides |
 |---|---|
@@ -138,7 +138,7 @@ a bare title as Markdown.
    in the preamble rather than emitted beside the `\section`, which is what
    lets `section-titles: false` switch every one of them off at once, and
    what gives one to a section made by a heading above the slide level too.
-   Commented at `mdslides` (`SECTION_PAGE_HOOKS`) and `beamer.tex.tpl`.
+   Commented at `jimbeamer` (`SECTION_PAGE_HOOKS`) and `beamer.tex.tpl`.
 7. **`handout: true` empties `\xpause`, and with it `\pausex`.** It replaces
    the `% \newcommand{\xpause}[0]{}` that used to sit commented out in the
    template and be uncommented by hand. Overlay specifications written out in
@@ -184,7 +184,7 @@ a bare title as Markdown.
   note saying why `\sectionname` is not used. Any assertion that something is
   *absent* from the template must go through `without_comments()` in the
   tests; the same care is needed when grepping by hand.
-- The `opts` fixture must take `mdslides` as a parameter; without it the name
+- The `opts` fixture must take `jimbeamer` as a parameter; without it the name
   resolves to the fixture object the decorator left behind rather than to the
   module, and most of the suite fails at once with `AttributeError:
   'FixtureFunctionDefinition' object has no attribute 'LISTINGS_ESCAPECHAR'`.
@@ -228,7 +228,7 @@ To compare fairly: copy `macros.tex`, `stylesheet.tex`, `filter.py3` and
 `klee.png` to a scratch directory alongside both sources, strip `\pausex` from
 each with `sed` so every frame is one page, build one with
 `pandoc --filter ./filter.py3 --wrap=none -t beamer -s` and the other with
-`mdslides`, then compare `pdftotext -layout` page by page.
+`jimbeamer`, then compare `pdftotext -layout` page by page.
 
 Two differences remain, neither a defect here: pandoc numbers the lines of the
 algorithm listing (that is `numbers=left` in the `stylesheet.tex` the deck no

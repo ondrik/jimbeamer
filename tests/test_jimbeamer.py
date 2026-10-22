@@ -1,4 +1,4 @@
-"""Tests for mdslides.
+"""Tests for jimbeamer.
 
     pytest                              # everything
     pytest -k frontmatter               # one area
@@ -37,8 +37,8 @@ template is otherwise defeated by the comments explaining why it is absent.
 # split_frontmatter() -- recognizing and parsing the metadata block
 ###########################################
 
-def test_frontmatter_is_parsed(mdslides):
-    meta, body = mdslides.split_frontmatter(doc("""
+def test_frontmatter_is_parsed(jimbeamer):
+    meta, body = jimbeamer.split_frontmatter(doc("""
         ---
         title: "Symbolic Execution"
         aspectratio: 169
@@ -53,8 +53,8 @@ def test_frontmatter_is_parsed(mdslides):
     assert '# Manual Testing' in body
 
 
-def test_frontmatter_keeps_yaml_types(mdslides):
-    meta, _ = mdslides.split_frontmatter(doc("""
+def test_frontmatter_keeps_yaml_types(jimbeamer):
+    meta, _ = jimbeamer.split_frontmatter(doc("""
         ---
         aspectratio: 169
         fontsize: 10pt
@@ -68,8 +68,8 @@ def test_frontmatter_keeps_yaml_types(mdslides):
     assert meta['titlegraphic'] is None
 
 
-def test_frontmatter_block_scalar_survives(mdslides):
-    meta, _ = mdslides.split_frontmatter(doc("""
+def test_frontmatter_block_scalar_survives(jimbeamer):
+    meta, _ = jimbeamer.split_frontmatter(doc("""
         ---
         header-includes: |
           \\usepackage{listings}
@@ -81,9 +81,9 @@ def test_frontmatter_block_scalar_survives(mdslides):
         '\\usepackage{listings}\n\n\\input{macros.tex}\n'
 
 
-def test_frontmatter_html_comments_are_stripped(mdslides):
+def test_frontmatter_html_comments_are_stripped(jimbeamer):
     """HTML comments are valid Markdown but not valid YAML."""
-    meta, _ = mdslides.split_frontmatter(doc("""
+    meta, _ = jimbeamer.split_frontmatter(doc("""
         ---
         title: T
         <!--lang: en-->
@@ -102,8 +102,8 @@ def test_frontmatter_html_comments_are_stripped(mdslides):
     pytest.param('---\n---\n', {}, id='empty-block'),
     pytest.param('---\r\ntitle: T\r\n---\r\n', {'title': 'T'}, id='crlf'),
 ])
-def test_frontmatter_recognized_forms(mdslides, text, expected):
-    meta, _ = mdslides.split_frontmatter(text)
+def test_frontmatter_recognized_forms(jimbeamer, text, expected):
+    meta, _ = jimbeamer.split_frontmatter(text)
     assert meta == expected
 
 
@@ -113,21 +113,21 @@ def test_frontmatter_recognized_forms(mdslides, text, expected):
     pytest.param('\n---\ntitle: T\n---\n', id='not-on-the-first-line'),
     pytest.param('---\ntitle: T\n\n# Slide\n', id='no-closing-fence'),
 ])
-def test_frontmatter_absent_leaves_the_document_alone(mdslides, text):
+def test_frontmatter_absent_leaves_the_document_alone(jimbeamer, text):
     """Anything that is not a metadata block has to survive untouched."""
-    assert mdslides.split_frontmatter(text) == ({}, text)
+    assert jimbeamer.split_frontmatter(text) == ({}, text)
 
 
-def test_frontmatter_only_the_first_block_counts(mdslides):
+def test_frontmatter_only_the_first_block_counts(jimbeamer):
     """Fences further down belong to the body."""
-    meta, body = mdslides.split_frontmatter(
+    meta, body = jimbeamer.split_frontmatter(
         '---\ntitle: T\n---\n\n# A\n\n---\n\n# B\n')
     assert meta == {'title': 'T'}
     assert '---' in body
     assert '# B' in body
 
 
-def test_frontmatter_preserves_line_numbers(mdslides):
+def test_frontmatter_preserves_line_numbers(jimbeamer):
     """The block becomes blank lines so the body keeps its numbering."""
     text = doc("""
         ---
@@ -137,7 +137,7 @@ def test_frontmatter_preserves_line_numbers(mdslides):
 
         # Slide
     """)
-    _, body = mdslides.split_frontmatter(text)
+    _, body = jimbeamer.split_frontmatter(text)
     assert len(body.splitlines()) == len(text.splitlines())
     assert body.splitlines()[:4] == [''] * 4
     assert body.splitlines()[5] == '# Slide'
@@ -149,9 +149,9 @@ def test_frontmatter_preserves_line_numbers(mdslides):
     pytest.param('just a string', 'must be a mapping', id='scalar'),
     pytest.param('- a\n- b', 'must be a mapping', id='sequence'),
 ])
-def test_frontmatter_bad_block_exits_cleanly(mdslides, block, message):
+def test_frontmatter_bad_block_exits_cleanly(jimbeamer, block, message):
     with pytest.raises(SystemExit) as caught:
-        mdslides.split_frontmatter('---\n%s\n---\n' % block)
+        jimbeamer.split_frontmatter('---\n%s\n---\n' % block)
     assert message in str(caught.value)
 
 
@@ -159,21 +159,21 @@ def test_frontmatter_bad_block_exits_cleanly(mdslides, block, message):
 # find_template() -- where the default template comes from
 ###########################################
 
-def test_template_defaults_to_beside_the_script(mdslides, monkeypatch,
+def test_template_defaults_to_beside_the_script(jimbeamer, monkeypatch,
                                                 template_path):
-    monkeypatch.delenv(mdslides.TEMPLATE_ENV_VAR, raising=False)
-    assert mdslides.find_template() == template_path
+    monkeypatch.delenv(jimbeamer.TEMPLATE_ENV_VAR, raising=False)
+    assert jimbeamer.find_template() == template_path
 
 
-def test_template_environment_variable_wins(mdslides, monkeypatch):
-    monkeypatch.setenv(mdslides.TEMPLATE_ENV_VAR, '/somewhere/else.tpl')
-    assert mdslides.find_template() == '/somewhere/else.tpl'
+def test_template_environment_variable_wins(jimbeamer, monkeypatch):
+    monkeypatch.setenv(jimbeamer.TEMPLATE_ENV_VAR, '/somewhere/else.tpl')
+    assert jimbeamer.find_template() == '/somewhere/else.tpl'
 
 
-def test_template_empty_environment_variable_is_ignored(mdslides, monkeypatch,
+def test_template_empty_environment_variable_is_ignored(jimbeamer, monkeypatch,
                                                         template_path):
-    monkeypatch.setenv(mdslides.TEMPLATE_ENV_VAR, '')
-    assert mdslides.find_template() == template_path
+    monkeypatch.setenv(jimbeamer.TEMPLATE_ENV_VAR, '')
+    assert jimbeamer.find_template() == template_path
 
 
 ###########################################
@@ -209,23 +209,23 @@ def test_args_dash_means_the_standard_streams(parse_args):
     assert args.output is sys.stdout
 
 
-def test_args_missing_input_file_is_an_error(mdslides, capsys):
+def test_args_missing_input_file_is_an_error(jimbeamer, capsys):
     with pytest.raises(SystemExit):
-        mdslides.parse_args(['/no/such/deck.md'])
+        jimbeamer.parse_args(['/no/such/deck.md'])
     assert "cannot open the input file '/no/such/deck.md'" \
         in capsys.readouterr().err
 
 
-def test_args_variable_without_a_value_is_an_error(mdslides, capsys):
+def test_args_variable_without_a_value_is_an_error(jimbeamer, capsys):
     with pytest.raises(SystemExit):
-        mdslides.parse_args(['-V', 'oops'])
+        jimbeamer.parse_args(['-V', 'oops'])
     assert 'KEY=VALUE' in capsys.readouterr().err
 
 
-def test_args_missing_default_template_is_an_error(mdslides, monkeypatch, capsys):
-    monkeypatch.setenv(mdslides.TEMPLATE_ENV_VAR, '/no/such/template.tpl')
+def test_args_missing_default_template_is_an_error(jimbeamer, monkeypatch, capsys):
+    monkeypatch.setenv(jimbeamer.TEMPLATE_ENV_VAR, '/no/such/template.tpl')
     with pytest.raises(SystemExit):
-        mdslides.parse_args([])
+        jimbeamer.parse_args([])
     assert 'default template' in capsys.readouterr().err
 
 
@@ -248,8 +248,8 @@ def test_args_slide_level(parse_args, argv):
     pytest.param('a~b', 'a\\~{}b', id='tilde'),
     pytest.param('plain', 'plain', id='nothing-to-do'),
 ])
-def test_escape_latex(mdslides, text, expected):
-    assert mdslides.escape_latex(text) == expected
+def test_escape_latex(jimbeamer, text, expected):
+    assert jimbeamer.escape_latex(text) == expected
 
 
 @pytest.mark.parametrize('title, expected', [
@@ -275,8 +275,8 @@ def test_escape_latex(mdslides, text, expected):
     pytest.param('\\texttt{x}', ('\\texttt{x}', [], None),
                  id='only-a-latex-group'),
 ])
-def test_split_heading_attributes(mdslides, title, expected):
-    assert mdslides.split_heading_attributes(title) == expected
+def test_split_heading_attributes(jimbeamer, title, expected):
+    assert jimbeamer.split_heading_attributes(title) == expected
 
 
 ###########################################
@@ -451,7 +451,7 @@ def test_render_material_before_the_first_heading(render):
     assert 'orphan text' in result
 
 
-def test_render_metadata_blank_lines_make_no_empty_frame(mdslides, convert):
+def test_render_metadata_blank_lines_make_no_empty_frame(jimbeamer, convert):
     """split_frontmatter() pads with blank lines; they must not become a frame."""
     result = convert('---\ntitle: T\n---\n\n# Slide\n')
     assert result.count('\\begin{frame}') == 1
@@ -611,10 +611,10 @@ def test_a_percent_that_is_not_a_comment_line_is_kept(render, source, kept):
     assert kept in render(source)
 
 
-def test_comment_lines_are_stripped_before_parsing(mdslides):
+def test_comment_lines_are_stripped_before_parsing(jimbeamer):
     """strip_comments() runs on the source, so marko never sees them."""
-    assert mdslides.strip_comments('a\n% note\nb\n') == 'a\nb\n'
-    assert mdslides.strip_comments('```\n% kept\n```\n') == '```\n% kept\n```\n'
+    assert jimbeamer.strip_comments('a\n% note\nb\n') == 'a\nb\n'
+    assert jimbeamer.strip_comments('```\n% kept\n```\n') == '```\n% kept\n```\n'
 
 
 @pytest.mark.parametrize('fence, expected', [
@@ -1978,28 +1978,28 @@ def test_slide_metadata_itemsep_does_not_leak_to_the_next_slide(render):
     pytest.param('a_b_c', 'a_b_c', id='underscore-intraword'),
     pytest.param('a _b_ c', 'a \\emph{b} c', id='underscore-delimited'),
 ])
-def test_metadata_title_is_markdown(mdslides, opts, value, expected):
+def test_metadata_title_is_markdown(jimbeamer, opts, value, expected):
     # single-quoted: YAML reads a '\\t' in a double-quoted scalar as a tab
-    out = mdslides.convert("---\ntitle: '%s'\n---\n\n# S\n" % value,
+    out = jimbeamer.convert("---\ntitle: '%s'\n---\n\n# S\n" % value,
                            '$title', opts())
     assert out == expected
 
 
-def test_metadata_block_shaped_values_pass_through(mdslides, opts):
+def test_metadata_block_shaped_values_pass_through(jimbeamer, opts):
     """'1. Introduction' is a numbered title, not a list."""
-    out = mdslides.convert("---\ntitle: '1. Introduction'\n---\n\n# S\n",
+    out = jimbeamer.convert("---\ntitle: '1. Introduction'\n---\n\n# S\n",
                            '$title', opts())
     assert out == '1. Introduction'
 
 
-def test_metadata_author_list_items_are_markdown(mdslides, opts):
-    out = mdslides.convert('---\nauthor: ["A *One*", "B"]\n---\n\n# S\n',
+def test_metadata_author_list_items_are_markdown(jimbeamer, opts):
+    out = jimbeamer.convert('---\nauthor: ["A *One*", "B"]\n---\n\n# S\n',
                            '$author', opts())
     assert out == 'A \\emph{One} \\and B'
 
 
-def test_metadata_short_form_inherits_the_rendered_long_one(mdslides, opts):
-    out = mdslides.convert("---\ntitle: '**T**'\n---\n\n# S\n",
+def test_metadata_short_form_inherits_the_rendered_long_one(jimbeamer, opts):
+    out = jimbeamer.convert("---\ntitle: '**T**'\n---\n\n# S\n",
                            '$shorttitle', opts())
     assert out == '\\textbf{T}'
 
@@ -2008,10 +2008,10 @@ def test_metadata_short_form_inherits_the_rendered_long_one(mdslides, opts):
     pytest.param('header-includes', '$headerincludes', id='header-includes'),
     pytest.param('theme', '$theme', id='theme'),
 ])
-def test_metadata_that_is_not_prose_is_left_alone(mdslides, opts, key,
+def test_metadata_that_is_not_prose_is_left_alone(jimbeamer, opts, key,
                                                   variable):
     """Only the values that become prose on a slide are parsed."""
-    out = mdslides.convert("---\n%s: 'a _b_ c'\n---\n\n# S\n" % key,
+    out = jimbeamer.convert("---\n%s: 'a _b_ c'\n---\n\n# S\n" % key,
                            variable, opts())
     assert out == 'a _b_ c'
 
@@ -2051,16 +2051,16 @@ def test_directive_listing_inside_makes_the_frame_fragile(render):
 # The renderer: the example presentation (conftest.EXAMPLE)
 ###########################################
 
-def test_render_deck_produces_frames(mdslides, deck, render):
-    _, body = mdslides.split_frontmatter(deck)
+def test_render_deck_produces_frames(jimbeamer, deck, render):
+    _, body = jimbeamer.split_frontmatter(deck)
     result = render(body)
     # One frame per '#' heading, except that a heading opening a section
     # produces a separator slide instead of a frame of its own -- plus one
     # per slide declared by a metadata block, which has no heading at all.
     headings = [line for line in body.splitlines() if re.match(r'# \S', line)]
     separators = [line for line in headings
-                  if mdslides.split_heading_attributes(line)[2]]
-    blocks = len(mdslides.SLIDE_METADATA_RE.findall(body))
+                  if jimbeamer.split_heading_attributes(line)[2]]
+    blocks = len(jimbeamer.SLIDE_METADATA_RE.findall(body))
     assert separators, 'expected the example to have a section separator'
     assert blocks, 'expected the example to have a slide metadata block'
     assert (result.count('\\begin{frame}')
@@ -2069,10 +2069,10 @@ def test_render_deck_produces_frames(mdslides, deck, render):
     assert result.count('\\begin{frame}') == result.count('\\end{frame}')
 
 
-def test_render_deck_algorithm_listing_can_escape_to_maths(mdslides, deck,
+def test_render_deck_algorithm_listing_can_escape_to_maths(jimbeamer, deck,
                                                            render):
     """The algorithm slide is written as listings input, not as C."""
-    _, body = mdslides.split_frontmatter(deck)
+    _, body = jimbeamer.split_frontmatter(deck)
     assert '```lstlisting' in body, 'expected a raw listing in the deck'
     assert '[escapechar=@]' in render(body)
 
@@ -2094,9 +2094,9 @@ header-includes comes last and the deck cannot get in before it."""
     assert '\\usepackage{xspace}' in without_comments(template)
 
 
-def test_render_deck_math_survives_verbatim(mdslides, deck, render):
+def test_render_deck_math_survives_verbatim(jimbeamer, deck, render):
     """Every maths span in the deck has to come out exactly as written."""
-    _, body = mdslides.split_frontmatter(deck)
+    _, body = jimbeamer.split_frontmatter(deck)
     result = render(body)
     # anything commented out is dropped on purpose, maths included
     visible = re.sub(r'<!--.*?-->', '', body, flags=re.S)
@@ -2105,19 +2105,19 @@ def test_render_deck_math_survives_verbatim(mdslides, deck, render):
     assert [span for span in spans if span not in result] == []
 
 
-def test_render_deck_table_survives_verbatim(mdslides, deck, render):
+def test_render_deck_table_survives_verbatim(jimbeamer, deck, render):
     """The tabularx table, '&' and '\\\\' and all."""
-    _, body = mdslides.split_frontmatter(deck)
+    _, body = jimbeamer.split_frontmatter(deck)
     result = render(body)
     table = re.search(r'\\begin\{tabularx\}.*?\\end\{tabularx\}', body, re.S)
     assert table, 'expected a tabularx table in the deck'
     assert table.group(0) in result
 
 
-def test_render_deck_listings_all_have_a_frame_marked_fragile(mdslides, deck,
+def test_render_deck_listings_all_have_a_frame_marked_fragile(jimbeamer, deck,
                                                               render):
     """Every listing has to sit in a frame that beamer will re-read."""
-    _, body = mdslides.split_frontmatter(deck)
+    _, body = jimbeamer.split_frontmatter(deck)
     for frame in render(body).split('\\begin{frame}')[1:]:
         if '\\begin{lstlisting}' in frame:
             assert frame.startswith('[fragile]') or \
@@ -2128,53 +2128,53 @@ def test_render_deck_listings_all_have_a_frame_marked_fragile(mdslides, deck,
 # build_variables() -- metadata into template substitutions
 ###########################################
 
-def test_variables_pass_metadata_through(mdslides):
-    variables = mdslides.build_variables({'theme': 'Madrid'}, 'BODY')
+def test_variables_pass_metadata_through(jimbeamer):
+    variables = jimbeamer.build_variables({'theme': 'Madrid'}, 'BODY')
     assert variables['theme'] == 'Madrid'
     assert variables['slides'] == 'BODY'
 
 
-def test_variables_supply_defaults(mdslides):
+def test_variables_supply_defaults(jimbeamer):
     """Every variable the template may mention has to resolve to something."""
-    variables = mdslides.build_variables({}, '')
-    assert set(mdslides.TEMPLATE_DEFAULTS) <= set(variables)
+    variables = jimbeamer.build_variables({}, '')
+    assert set(jimbeamer.TEMPLATE_DEFAULTS) <= set(variables)
 
     # These three are computed from the metadata rather than taken from the
     # defaults, and have tests of their own.
     computed = {'titlepage', 'sectionpages', 'toc'}
-    for name, value in mdslides.TEMPLATE_DEFAULTS.items():
+    for name, value in jimbeamer.TEMPLATE_DEFAULTS.items():
         if name not in computed:
             assert variables[name] == value
 
 
-def test_variables_ignore_empty_metadata_entries(mdslides):
+def test_variables_ignore_empty_metadata_entries(jimbeamer):
     """'titlegraphic:' with no value must not override a default."""
-    variables = mdslides.build_variables({'theme': None}, '')
-    assert variables['theme'] == mdslides.TEMPLATE_DEFAULTS['theme']
+    variables = jimbeamer.build_variables({'theme': None}, '')
+    assert variables['theme'] == jimbeamer.TEMPLATE_DEFAULTS['theme']
 
 
 @pytest.mark.parametrize('key', ['author', 'institute'])
-def test_variables_join_people_with_and(mdslides, key):
-    variables = mdslides.build_variables({key: ['Jakub Havlík', 'Ondřej Lengál']}, '')
+def test_variables_join_people_with_and(jimbeamer, key):
+    variables = jimbeamer.build_variables({key: ['Jakub Havlík', 'Ondřej Lengál']}, '')
     assert variables[key] == 'Jakub Havlík \\and Ondřej Lengál'
 
 
 @pytest.mark.parametrize('key', ['author', 'institute'])
-def test_variables_accept_a_lone_name(mdslides, key):
-    variables = mdslides.build_variables({key: 'Ondřej Lengál'}, '')
+def test_variables_accept_a_lone_name(jimbeamer, key):
+    variables = jimbeamer.build_variables({key: 'Ondřej Lengál'}, '')
     assert variables[key] == 'Ondřej Lengál'
 
 
-def test_variables_join_other_lists_with_newlines(mdslides):
-    variables = mdslides.build_variables(
+def test_variables_join_other_lists_with_newlines(jimbeamer):
+    variables = jimbeamer.build_variables(
         {'header-includes': ['\\usepackage{listings}', '\\input{macros.tex}']}, '')
     assert variables['headerincludes'] == \
         '\\usepackage{listings}\n\\input{macros.tex}'
 
 
-def test_variables_alias_hyphenated_keys(mdslides):
+def test_variables_alias_hyphenated_keys(jimbeamer):
     """string.Template cannot reach '$header-includes'."""
-    variables = mdslides.build_variables({'header-includes': 'X'}, '')
+    variables = jimbeamer.build_variables({'header-includes': 'X'}, '')
     assert variables['headerincludes'] == 'X'
     assert variables['header-includes'] == 'X'
 
@@ -2189,9 +2189,9 @@ def test_variables_alias_hyphenated_keys(mdslides):
     pytest.param({'classoption': ['handout', 'draft']},
                  'dvipsnames,handout,draft', id='extra-options'),
 ])
-def test_variables_build_the_documentclass_options(mdslides, meta, expected):
+def test_variables_build_the_documentclass_options(jimbeamer, meta, expected):
     """One string, so that an absent option cannot leave a stray comma."""
-    assert mdslides.build_variables(meta, '')['classoptions'] == expected
+    assert jimbeamer.build_variables(meta, '')['classoptions'] == expected
 
 
 @pytest.mark.parametrize('short, long', [
@@ -2199,19 +2199,19 @@ def test_variables_build_the_documentclass_options(mdslides, meta, expected):
     pytest.param('shortauthor', 'author', id='author'),
     pytest.param('shortdate', 'date', id='date'),
 ])
-def test_variables_short_forms_fall_back_to_the_long_ones(mdslides, short, long):
-    variables = mdslides.build_variables({long: 'Long Form'}, '')
+def test_variables_short_forms_fall_back_to_the_long_ones(jimbeamer, short, long):
+    variables = jimbeamer.build_variables({long: 'Long Form'}, '')
     assert variables[short] == 'Long Form'
 
 
-def test_variables_short_institute_falls_back_to_the_institute(mdslides):
+def test_variables_short_institute_falls_back_to_the_institute(jimbeamer):
     """It appears in the footline beside the author, as it does in pandoc."""
-    variables = mdslides.build_variables({'institute': 'Brno University'}, '')
+    variables = jimbeamer.build_variables({'institute': 'Brno University'}, '')
     assert variables['shortinstitute'] == 'Brno University'
 
 
-def test_variables_short_institute_can_be_given_explicitly(mdslides):
-    variables = mdslides.build_variables(
+def test_variables_short_institute_can_be_given_explicitly(jimbeamer):
+    variables = jimbeamer.build_variables(
         {'institute': 'Brno University of Technology', 'short-institute': 'BUT'},
         '')
     assert variables['shortinstitute'] == 'BUT'
@@ -2223,25 +2223,25 @@ def test_variables_short_institute_can_be_given_explicitly(mdslides):
     pytest.param('shortauthor', 'author', 'Ondřej Lengál', id='author'),
     pytest.param('shortdate', 'date', '3 November 2025', id='date'),
 ])
-def test_variables_an_empty_short_form_is_kept(mdslides, short, long, value):
+def test_variables_an_empty_short_form_is_kept(jimbeamer, short, long, value):
     """'short-institute: ""' is how a deck says "leave the affiliation out
 of the footline"; falling back to the long form would do the opposite."""
     key = short.replace('short', 'short-')
-    variables = mdslides.build_variables({long: value, key: ''}, '')
+    variables = jimbeamer.build_variables({long: value, key: ''}, '')
     assert variables[short] == ''
 
 
 @pytest.mark.parametrize('key', ['short-institute', 'shortinstitute'])
-def test_variables_short_form_spelling(mdslides, key):
+def test_variables_short_form_spelling(jimbeamer, key):
     """Hyphenated or not, the deck's own value is what counts."""
-    variables = mdslides.build_variables({'institute': 'FIT VUT', key: ''}, '')
+    variables = jimbeamer.build_variables({'institute': 'FIT VUT', key: ''}, '')
     assert variables['shortinstitute'] == ''
 
 
-def test_variables_a_valueless_short_form_still_falls_back(mdslides):
+def test_variables_a_valueless_short_form_still_falls_back(jimbeamer):
     """'short-institute:' with nothing after it is YAML None, not an empty
 string, and reads as "not given"."""
-    variables = mdslides.build_variables(
+    variables = jimbeamer.build_variables(
         {'institute': 'FIT VUT', 'short-institute': None}, '')
     assert variables['shortinstitute'] == 'FIT VUT'
 
@@ -2253,8 +2253,8 @@ def test_convert_empty_short_institute_reaches_the_document(convert):
 
 
 @pytest.mark.parametrize('key', ['short-title', 'shorttitle'])
-def test_variables_explicit_short_form_wins(mdslides, key):
-    variables = mdslides.build_variables({'title': 'Long', key: 'Short'}, '')
+def test_variables_explicit_short_form_wins(jimbeamer, key):
+    variables = jimbeamer.build_variables({'title': 'Long', key: 'Short'}, '')
     assert variables['shorttitle'] == 'Short'
 
 
@@ -2275,13 +2275,13 @@ def test_variables_explicit_short_form_wins(mdslides, key):
     pytest.param('yes', True, id='yes'),
     pytest.param('1', True, id='one'),
 ])
-def test_as_bool(mdslides, value, expected):
-    assert mdslides.as_bool(value) is expected
+def test_as_bool(jimbeamer, value, expected):
+    assert jimbeamer.as_bool(value) is expected
 
 
 @pytest.mark.parametrize('default', [True, False])
-def test_as_bool_default_for_absent(mdslides, default):
-    assert mdslides.as_bool(None, default) is default
+def test_as_bool_default_for_absent(jimbeamer, default):
+    assert jimbeamer.as_bool(None, default) is default
 
 
 ###########################################
@@ -2291,23 +2291,23 @@ def test_as_bool_default_for_absent(mdslides, default):
 TITLEPAGE = '\\frame{\\titlepage}'
 
 
-def test_titlepage_is_added_when_there_is_a_title(mdslides):
-    assert mdslides.build_variables({'title': 'T'}, '')['titlepage'] == TITLEPAGE
+def test_titlepage_is_added_when_there_is_a_title(jimbeamer):
+    assert jimbeamer.build_variables({'title': 'T'}, '')['titlepage'] == TITLEPAGE
 
 
-def test_titlepage_is_absent_without_a_title(mdslides):
+def test_titlepage_is_absent_without_a_title(jimbeamer):
     """Nothing to put on one, so an empty title frame is not produced."""
-    assert mdslides.build_variables({}, '')['titlepage'] == ''
+    assert jimbeamer.build_variables({}, '')['titlepage'] == ''
 
 
 @pytest.mark.parametrize('value', [False, 'false', 'no', '0'])
-def test_titlepage_can_be_switched_off(mdslides, value):
-    variables = mdslides.build_variables({'title': 'T', 'titlepage': value}, '')
+def test_titlepage_can_be_switched_off(jimbeamer, value):
+    variables = jimbeamer.build_variables({'title': 'T', 'titlepage': value}, '')
     assert variables['titlepage'] == ''
 
 
-def test_titlepage_can_be_forced_without_a_title(mdslides):
-    variables = mdslides.build_variables({'titlepage': True}, '')
+def test_titlepage_can_be_forced_without_a_title(jimbeamer):
+    variables = jimbeamer.build_variables({'titlepage': True}, '')
     assert variables['titlepage'] == TITLEPAGE
 
 
@@ -2343,8 +2343,8 @@ def test_titlepage_switched_off_from_the_command_line(convert):
     assert TITLEPAGE not in result
 
 
-def test_titlepage_in_the_deck(mdslides, deck, template, opts):
-    result = mdslides.convert(deck, template, opts())
+def test_titlepage_in_the_deck(jimbeamer, deck, template, opts):
+    result = jimbeamer.convert(deck, template, opts())
     assert TITLEPAGE in result
 
 
@@ -2376,28 +2376,28 @@ def test_convert_command_line_variables_override_the_metadata(convert):
     assert 'FromMetadata' not in result
 
 
-def test_convert_leaves_unknown_placeholders_alone(mdslides, opts):
+def test_convert_leaves_unknown_placeholders_alone(jimbeamer, opts):
     """safe_substitute(): a variable we cannot fill is not fatal."""
-    result = mdslides.convert('# Slide\n', 'a $nosuchvariable b $slides', opts())
+    result = jimbeamer.convert('# Slide\n', 'a $nosuchvariable b $slides', opts())
     assert '$nosuchvariable' in result
 
 
-def test_shipped_template_is_fully_substituted(mdslides, deck, template):
+def test_shipped_template_is_fully_substituted(jimbeamer, deck, template):
     """No '$name' may reach LaTeX, where it would be read as maths.
 
 Rendered with an empty body on purpose: once the renderer emits real slides
 they will contain $maths$, which is not what this test is about.
 """
-    meta, _ = mdslides.split_frontmatter(deck)
+    meta, _ = jimbeamer.split_frontmatter(deck)
     filled = string.Template(template).safe_substitute(
-        mdslides.build_variables(meta, ''))
+        jimbeamer.build_variables(meta, ''))
     assert re.findall(r'\$[A-Za-z_]\w*', filled) == []
 
 
-def test_shipped_template_is_substituted_without_any_metadata(mdslides, template):
+def test_shipped_template_is_substituted_without_any_metadata(jimbeamer, template):
     """The defaults have to cover a document with no metadata block at all."""
     filled = string.Template(template).safe_substitute(
-        mdslides.build_variables({}, ''))
+        jimbeamer.build_variables({}, ''))
     assert re.findall(r'\$[A-Za-z_]\w*', filled) == []
 
 
@@ -2419,21 +2419,21 @@ def test_convert_is_quiet_without_dump_ast(convert, capsys):
 # strings, so editing the deck does not break the tests.
 ###########################################
 
-def test_deck_metadata_is_parsed(mdslides, deck):
-    meta, _ = mdslides.split_frontmatter(deck)
+def test_deck_metadata_is_parsed(jimbeamer, deck):
+    meta, _ = jimbeamer.split_frontmatter(deck)
     assert isinstance(meta['aspectratio'], int)
     assert '\\usepackage{listings}' in meta['header-includes']
 
 
-def test_deck_commented_out_metadata_is_dropped(mdslides, deck):
+def test_deck_commented_out_metadata_is_dropped(jimbeamer, deck):
     """The deck disables 'lang' with an HTML comment."""
     assert '<!--lang:' in deck
-    meta, _ = mdslides.split_frontmatter(deck)
+    meta, _ = jimbeamer.split_frontmatter(deck)
     assert 'lang' not in meta
 
 
-def test_deck_body_lines_keep_their_numbers(mdslides, deck):
-    _, body = mdslides.split_frontmatter(deck)
+def test_deck_body_lines_keep_their_numbers(jimbeamer, deck):
+    _, body = jimbeamer.split_frontmatter(deck)
     original = deck.splitlines()
     assert len(body.splitlines()) == len(original)
     for number, line in enumerate(body.splitlines()):
@@ -2441,14 +2441,14 @@ def test_deck_body_lines_keep_their_numbers(mdslides, deck):
             assert line == original[number], 'line %d moved' % (number + 1)
 
 
-def test_deck_metadata_is_gone_from_the_body(mdslides, deck):
-    _, body = mdslides.split_frontmatter(deck)
+def test_deck_metadata_is_gone_from_the_body(jimbeamer, deck):
+    _, body = jimbeamer.split_frontmatter(deck)
     assert 'header-includes' not in body
 
 
-def test_deck_converts_to_a_document(mdslides, deck, template, opts):
-    meta, _ = mdslides.split_frontmatter(deck)
-    result = mdslides.convert(deck, template, opts())
+def test_deck_converts_to_a_document(jimbeamer, deck, template, opts):
+    meta, _ = jimbeamer.split_frontmatter(deck)
+    result = jimbeamer.convert(deck, template, opts())
     assert '\\documentclass' in result
     assert str(meta['aspectratio']) in result
     assert meta['title'] in result
@@ -2482,7 +2482,7 @@ def png_bytes(size=8):
 
 
 def compile_latex(directory, text, script):
-    """Run mdslides on `text' and pdflatex on the result."""
+    """Run jimbeamer on `text' and pdflatex on the result."""
     (directory / 'f.png').write_bytes(png_bytes())
     source = directory / 'deck.md'
     source.write_text(text, encoding='utf-8')
@@ -2576,13 +2576,13 @@ def run(script, *argv, stdin=None):
 
 
 def test_cli_is_executable(script):
-    assert os.access(script, os.X_OK), 'mdslides is not executable'
+    assert os.access(script, os.X_OK), 'jimbeamer is not executable'
 
 
-def test_cli_version(script, mdslides):
+def test_cli_version(script, jimbeamer):
     done = run(script, '--version')
     assert done.returncode == 0
-    assert mdslides.VERSION in done.stdout
+    assert jimbeamer.VERSION in done.stdout
 
 
 def test_cli_help_lists_the_options(script):
@@ -2663,41 +2663,41 @@ class FakeRun:
         return subprocess.CompletedProcess(command, self.returncode)
 
 
-def test_latex_prefers_latexmk(mdslides, monkeypatch, tmp_path):
+def test_latex_prefers_latexmk(jimbeamer, monkeypatch, tmp_path):
     """latexmk works out for itself how many passes are needed."""
-    monkeypatch.setattr(mdslides.shutil, 'which',
+    monkeypatch.setattr(jimbeamer.shutil, 'which',
                         lambda name: '/bin/' + name if name == 'latexmk' else None)
     fake = FakeRun()
-    monkeypatch.setattr(mdslides.subprocess, 'run', fake)
-    assert mdslides.run_latex(str(tmp_path / 'deck.tex')) == 0
+    monkeypatch.setattr(jimbeamer.subprocess, 'run', fake)
+    assert jimbeamer.run_latex(str(tmp_path / 'deck.tex')) == 0
     assert len(fake.commands) == 1
     assert fake.commands[0][0] == 'latexmk'
 
 
-def test_latex_falls_back_to_two_pdflatex_passes(mdslides, monkeypatch,
+def test_latex_falls_back_to_two_pdflatex_passes(jimbeamer, monkeypatch,
                                                  tmp_path):
     """beamer needs a second pass before its counters settle."""
-    monkeypatch.setattr(mdslides.shutil, 'which',
+    monkeypatch.setattr(jimbeamer.shutil, 'which',
                         lambda name: '/bin/' + name if name == 'pdflatex' else None)
     fake = FakeRun()
-    monkeypatch.setattr(mdslides.subprocess, 'run', fake)
-    assert mdslides.run_latex(str(tmp_path / 'deck.tex')) == 0
+    monkeypatch.setattr(jimbeamer.subprocess, 'run', fake)
+    assert jimbeamer.run_latex(str(tmp_path / 'deck.tex')) == 0
     assert [c[0] for c in fake.commands] == ['pdflatex', 'pdflatex']
 
 
-def test_latex_without_an_engine_is_reported(mdslides, monkeypatch, capsys,
+def test_latex_without_an_engine_is_reported(jimbeamer, monkeypatch, capsys,
                                              tmp_path):
-    monkeypatch.setattr(mdslides.shutil, 'which', lambda name: None)
-    assert mdslides.run_latex(str(tmp_path / 'deck.tex')) == 1
+    monkeypatch.setattr(jimbeamer.shutil, 'which', lambda name: None)
+    assert jimbeamer.run_latex(str(tmp_path / 'deck.tex')) == 1
     assert 'neither latexmk nor pdflatex' in capsys.readouterr().err
 
 
-def test_latex_stops_at_the_first_failing_pass(mdslides, monkeypatch, tmp_path):
-    monkeypatch.setattr(mdslides.shutil, 'which',
+def test_latex_stops_at_the_first_failing_pass(jimbeamer, monkeypatch, tmp_path):
+    monkeypatch.setattr(jimbeamer.shutil, 'which',
                         lambda name: '/bin/' + name if name == 'pdflatex' else None)
     fake = FakeRun(returncode=1)
-    monkeypatch.setattr(mdslides.subprocess, 'run', fake)
-    assert mdslides.run_latex(str(tmp_path / 'deck.tex')) == 1
+    monkeypatch.setattr(jimbeamer.subprocess, 'run', fake)
+    assert jimbeamer.run_latex(str(tmp_path / 'deck.tex')) == 1
     assert len(fake.commands) == 1, 'should not run again after a failure'
 
 
@@ -2708,24 +2708,24 @@ def test_pdf_needs_somewhere_to_write(script):
     assert '--pdf needs -o FILE' in done.stderr
 
 
-def test_pdf_derives_the_output_name_from_the_input(mdslides, tmp_path,
+def test_pdf_derives_the_output_name_from_the_input(jimbeamer, tmp_path,
                                                     monkeypatch):
     source = tmp_path / 'talk.md'
     source.write_text('# S\n', encoding='utf-8')
-    args = mdslides.parse_args(['--pdf', str(source)])
+    args = jimbeamer.parse_args(['--pdf', str(source)])
     args.template.close()
-    mdslides.discard_output(args)
+    jimbeamer.discard_output(args)
     # not args.output.name: the handle is the temporary file it is written to
     assert args.output_path == str(tmp_path / 'talk.tex')
 
 
-def test_pdf_keeps_an_explicit_output_name(mdslides, tmp_path):
+def test_pdf_keeps_an_explicit_output_name(jimbeamer, tmp_path):
     source = tmp_path / 'talk.md'
     source.write_text('# S\n', encoding='utf-8')
-    args = mdslides.parse_args(['--pdf', str(source), '-o',
+    args = jimbeamer.parse_args(['--pdf', str(source), '-o',
                                 str(tmp_path / 'other.tex')])
     args.template.close()
-    mdslides.discard_output(args)
+    jimbeamer.discard_output(args)
     assert args.output_path == str(tmp_path / 'other.tex')
 
 
@@ -2822,7 +2822,7 @@ given it, not 0600."""
 
 
 def test_pdf_refuses_to_write_over_its_own_input(script, tmp_path):
-    """'mdslides --pdf deck.tex' used to destroy deck.tex: the output name is
+    """'jimbeamer --pdf deck.tex' used to destroy deck.tex: the output name is
 the input with its extension replaced, and opening the output truncates it
 before a byte of the input is read."""
     source = tmp_path / 'deck.tex'
@@ -2852,7 +2852,7 @@ def test_output_may_be_a_different_file(script, tmp_path):
     assert (tmp_path / 'deck.tex').exists()
 
 
-def test_file_line_errors_are_reported(mdslides, tmp_path, capsys):
+def test_file_line_errors_are_reported(jimbeamer, tmp_path, capsys):
     """run_latex() passes -file-line-error, so an error with a line to blame
 is rewritten as './deck.tex:150: ...' and does not start with '!'.  Matching
 only '!' is how an undefined macro used to produce no message at all."""
@@ -2867,7 +2867,7 @@ only '!' is how an undefined macro used to produce no message at all."""
         (/usr/share/texlive/texmf-dist/tex/latex/base/size11.clo)
         Package hyperref Info: Option `colorlinks' set `true' on input line 12.
     """), encoding='utf-8')
-    mdslides.report_latex_errors(str(log))
+    jimbeamer.report_latex_errors(str(log))
     err = capsys.readouterr().err
     assert './deck.tex:150: Undefined control sequence.' in err
     assert "! LaTeX Error: File `nope.sty' not found." in err

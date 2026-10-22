@@ -1,16 +1,16 @@
-" Filetype detection for mdslides.
+" Filetype detection for jimbeamer.
 "
 " A deck is an ordinary '.md' file, so there is no extension to go by and
 " switching every Markdown file to this syntax would be presumptuous.  What
 " is looked for instead is a construct that means nothing in Markdown and
 " something here, which no ordinary Markdown file has by accident.
 "
-" To settle it by hand instead, either name the file '.mdslides', or put a
+" To settle it by hand instead, either name the file '.jimd', or put a
 " modeline at the end of the deck:
 "
-"     <!-- vim: set filetype=mdslides: -->
+"     <!-- vim: set filetype=jimbeamer: -->
 
-au BufRead,BufNewFile *.mdslides setfiletype mdslides
+au BufRead,BufNewFile *.jimd setfiletype jimbeamer
 
 function! s:LooksLikeADeck() abort
   " Only the head of the file, so opening a large document stays cheap.
@@ -50,4 +50,4 @@ endfunction
 
 " 'set filetype=', not 'setfiletype': vim's own rules have already called
 " the latter for '*.md', and it does nothing once a filetype is settled.
-au BufRead *.md if s:LooksLikeADeck() | set filetype=mdslides | endif
+au BufRead *.md if s:LooksLikeADeck() | set filetype=jimbeamer | endif

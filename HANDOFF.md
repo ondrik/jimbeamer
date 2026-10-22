@@ -18,8 +18,8 @@ progress and nothing uncommitted.
 
 ## Where to pick it up
 
-    git clone git@github.com:ondrik/mdslides.git
-    cd mdslides
+    git clone git@github.com:ondrik/jimbeamer.git
+    cd jimbeamer
     pytest                      # the suite; all of it should pass
 
 Installing the two dependencies, the PEP 668 `externally-managed-environment`
