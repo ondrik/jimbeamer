@@ -5,6 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "jimbeamer"
 description = "Convert Markdown into LaTeX Beamer slides"
+authors = [{ name = "Ondřej Lengál", email = "ondra.lengal@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"

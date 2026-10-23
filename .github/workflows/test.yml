@@ -1,0 +1,125 @@
+name: tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # The suite needs nothing but pytest and the two dependencies, which is a
+  # promise worth keeping: this job has neither TeX nor vim, so the tests
+  # that want them skip themselves and the rest must still pass.
+  #
+  # It is also what substantiates 'requires-python = ">=3.9"'.  That floor
+  # comes from marko's own metadata and was never run until this existed.
+  test:
+    name: python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.9', '3.10', '3.11', '3.12', '3.13']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install
+        run: pip install -e '.[test]'
+
+      - name: Test
+        run: pytest -q
+
+  # The other half: with pdflatex and vim present, the tests that skip above
+  # run for real -- the compile tests build a document exercising every
+  # construct, and the vim tests ask the editor what it coloured.
+  everything:
+    name: with TeX and vim
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # beamer and tabularx come with latex-recommended, upquote with
+      # latex-extra, and lmodern is a package of its own that texlive-base
+      # only recommends -- which is how a lean installation ends up without
+      # the converter's default font.
+      - name: Install TeX and vim
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            vim \
+            latexmk \
+            lmodern \
+            texlive-latex-base \
+            texlive-latex-recommended \
+            texlive-latex-extra \
+            texlive-fonts-recommended
+
+      - name: Install
+        run: pip install -e '.[test]'
+
+      # One run, not two: the compile tests are the slow part of it.  A
+      # test that quietly stops running is worse than one that fails, and
+      # with TeX and vim installed none of these has any excuse.
+      - name: Test, and fail if anything skipped
+        run: |
+          set -o pipefail
+          pytest -q -rs 2>&1 | tee result.txt
+          if grep -q SKIPPED result.txt; then
+            echo 'Skipped even though TeX and vim are installed:'
+            grep SKIPPED result.txt
+            exit 1
+          fi
+
+  # Packaging is the part that only breaks once installed: the template is
+  # package data and the command is an entry point, and neither is exercised
+  # by running the tests from a checkout.
+  package:
+    name: build and install
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build
+        run: |
+          pip install build twine
+          python -m build
+          twine check dist/*
+
+      - name: Install the wheel somewhere with no checkout in sight
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install dist/*.whl
+
+      - name: Use it
+        run: |
+          cd /tmp
+          /tmp/clean/bin/jimbeamer --version
+          /tmp/clean/bin/python -m jimbeamer --version
+          # the preamble has to have travelled with the package
+          /tmp/clean/bin/python -c "
+          from jimbeamer.jimbeamer import find_template
+          with open(find_template()) as handle:
+              assert 'documentclass' in handle.read()
+          print('template found:', find_template())
+          "
+          printf -- '---\ntitle: T\n---\n\n# S\n\n* a bullet\n' > deck.md
+          /tmp/clean/bin/jimbeamer deck.md -o deck.tex
+          grep -q 'begin{frame}{S}' deck.tex
