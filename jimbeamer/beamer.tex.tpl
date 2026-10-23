@@ -21,9 +21,72 @@
 \setbeamertemplate{itemize item}[square]
 \setbeamertemplate{itemize subitem}[triangle]
 \setbeamertemplate{itemize subsubitem}[circle]
-\setbeamertemplate{enumerate item}[square]
 \setbeamertemplate{section in toc}[square]
 \setbeamertemplate{navigation symbols}{}
+
+%% An enumerate's label, in the square the themes call "projected": the
+%% name is the beamer font and colour to set it in, which is what tells the
+%% levels apart.
+%%
+%% This is beamer's own [square] template with the width measured from the
+%% label rather than fixed at 2.25ex.  Fixed, it has room for one character:
+%% a list ten items long printed "10" across the edges of its square, and a
+%% lettered one set "(iv)" the same way.  A single character still gets the
+%% same square it always did.
+%% The square is beamer's, and so is this: [square] carries an [action]
+%% setting 'item projected' to \scriptsize, which fired as a side effect of
+%% asking for the option.  Setting the templates below by hand loses the
+%% action with it, and the labels fall back to the \tiny the font theme
+%% gives them -- and since the box is measured in ex of that same font, the
+%% square shrinks with the digit.  This is that action, said out loud.
+%% 'subitem projected' and 'subsubitem projected' inherit from it.
+\setbeamerfont{item projected}{size=\scriptsize}
+
+\newlength{\jbenumwidth}
+\newcommand{\jbprojected}[2]{%
+  \hbox{%
+    \usebeamerfont*{#1}%
+    \usebeamercolor[bg]{#1}%
+    \settowidth{\jbenumwidth}{#2}%
+    \addtolength{\jbenumwidth}{.9ex}%
+    \ifdim\jbenumwidth<2.25ex\setlength{\jbenumwidth}{2.25ex}\fi%
+    \vrule width\jbenumwidth height1.85ex depth.4ex%
+    \hskip-\jbenumwidth%
+    \hbox to\jbenumwidth{\hfil\color{fg}#2\hfil}%
+  }%
+}
+
+\setbeamertemplate{enumerate item}{%
+  \jbprojected{item projected}{\insertenumlabel}}
+\setbeamertemplate{enumerate subitem}{%
+  \jbprojected{subitem projected}{\insertsubenumlabel}}
+\setbeamertemplate{enumerate subsubitem}{%
+  \jbprojected{subsubitem projected}{\insertsubsubenumlabel}}
+
+%% A list that says how to count -- '(a)', 'a)', '(iv)' -- reaches beamer as
+%% the optional argument of enumerate, and beamer sets those labels with the
+%% "mini template" instead of the three above, whatever they are.  The
+%% themes make it a ball, so a lettered list came out in balls while the
+%% numbered list beside it was in squares.
+%%
+%% One template serves all three levels, so it has to say which it is at.
+%% \beameritemnestingprefix is the obvious answer and the wrong one: beamer
+%% leaves it counting *every* list rather than the enumerates among
+%% themselves, so a lettered list inside a bullet would take the second
+%% level's colours while the same list written '1.' took the first -- two
+%% lists at one level set differently by how the marker was written, which
+%% is the mismatch this is all here to remove.  \@enumdepth is the number
+%% the three templates above are chosen by.
+\makeatletter
+\setbeamertemplate{enumerate mini template}{%
+  \ifnum\@enumdepth>2\relax
+    \jbprojected{subsubitem projected}{\insertenumlabel}%
+  \else\ifnum\@enumdepth>1\relax
+    \jbprojected{subitem projected}{\insertenumlabel}%
+  \else
+    \jbprojected{item projected}{\insertenumlabel}%
+  \fi\fi}
+\makeatother
 
 %% Separator slides carry the name alone. Beamer's own templates print
 %% "Section 1" above it (\sectionname~\insertsectionnumber, then \vskip1em);

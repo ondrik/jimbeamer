@@ -756,9 +756,11 @@ The delimiter, counter and value of an ordered list's marker, or None for a
 bullet: '(a)' is ('(%s)', 'a', 1), '2.' is ('%s.', '1', 2) and '(iv)' is
 ('(%s)', 'i', 4).
 
-The counter is the character beamer reads as "number it this way", so the
-delimiter with the counter in it is the template for the list -- which is
-why the author writing the first label is all it takes to set them all.
+The counter is the character beamer reads as "number it this way", which is
+why the author writing the first label is all it takes to set them all: it
+is passed through as the list's template and nothing else is.  The
+delimiter is not sent to beamer -- it is here to tell '(a)' from 'a)', two
+lists rather than one, which is same_list_family()'s business.
 
 With `counter' given the marker is read in that style, which is how a list
 goes on: the first marker settles what the list is, and '(v)' after '(iv)'
@@ -1980,17 +1982,25 @@ A slide's title, as Markdown where it parsed as Markdown.
         if itemsep is not None:
             tight += '\\setlength{\\itemsep}{%s}\n' % itemsep
 
-        # What the author wrote the first marker as is what the list looks
-        # like: beamer reads an enumerate's optional argument as the template
-        # for its labels, and '(a)' is that template already.  The plain '1.'
-        # is left without one, so that every deck written before this renders
-        # exactly as it did.
+        # How the author wrote the first marker is how the list counts:
+        # beamer reads an enumerate's optional argument as the template for
+        # its labels, and the counter -- 'a', 'i', 'I' -- is that template.
+        #
+        # The brackets around it are not passed on.  A label is set in the
+        # square the numbers use (see 'enumerate mini template' in the
+        # preamble), and the brackets inside one read as neither brackets
+        # nor a square; the counter alone makes '(a)' and 'a)' the list the
+        # numbered one beside it looks like.  Passing '(a)' through instead
+        # is this one line, if a deck ever wants the brackets printed.
+        #
+        # An arabic list is left without an argument altogether, so that
+        # every deck written before any of this renders exactly as it did.
         options = ''
         marker = list_marker(element.bullet) if element.ordered else None
         if marker is not None:
-            delimiter, counter, start = marker
-            if (delimiter, counter) != ('%s.', '1'):
-                options = '[%s]' % (delimiter % counter)
+            _, counter, start = marker
+            if counter != '1':
+                options = '[%s]' % counter
             if start != 1 and self._enum_depth <= len(ENUM_COUNTERS):
                 # \setcounter, not a package: the counter is one behind the
                 # first \item, and LaTeX has one per enumerate level

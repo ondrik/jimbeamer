@@ -621,6 +621,51 @@ def test_template_defines_tightlist(template):
     assert 'providecommand{\\tightlist}' in template
 
 
+def test_template_sets_every_enumerate_label_in_a_square(template):
+    """A list that says how to count -- '(a)', '(iv)' -- reaches beamer as
+the optional argument of enumerate, and beamer sets those labels with the
+'mini template', which the themes make a ball.  Setting 'enumerate item'
+alone left a lettered list in balls beside a numbered one in squares, and
+nothing short of looking at the PDF said so."""
+    code = without_comments(template)
+    for name in ('item', 'subitem', 'subsubitem', 'mini template'):
+        assert '\\setbeamertemplate{enumerate %s}' % name in code
+    # every one of them through the one macro, so they cannot drift apart
+    assert '[square]' not in code.split('enumerate item')[1]
+
+
+@pytest.mark.parametrize('level', ['item', 'subitem', 'subsubitem'])
+def test_the_mini_template_reaches_every_level(template, level):
+    """It is the one template beamer uses for all three, so it has to pick.
+\\beameritemnestingprefix, the obvious way, counts every list rather than
+the enumerates among themselves: a lettered list inside a bullet would take
+the second level's colours while the same list written '1.' took the first.
+It picks by \\@enumdepth instead, which is what names the three above."""
+    mini = without_comments(template).split('enumerate mini template')[1]
+    assert '\\jbprojected{%s projected}' % level in mini
+    assert '\\@enumdepth' in mini
+    assert '\\beameritemnestingprefix' not in mini
+
+
+def test_template_keeps_the_font_the_square_option_used_to_set(template):
+    """beamer's [square] carries an [action] setting 'item projected' to
+\\scriptsize, and it fired as a side effect of asking for the option.
+Setting the templates by hand loses the action, the labels fall back to the
+font theme's \\tiny, and -- the box being measured in ex of that same font
+-- every label in every deck comes out a quarter smaller.  Nothing says so
+but the PDF."""
+    code = without_comments(template)
+    assert '\\setbeamerfont{item projected}{size=\\scriptsize}' in code
+
+
+def test_template_measures_the_label_it_boxes(template):
+    """beamer's own square is 2.25ex wide whatever is in it, which fits one
+character: '10' and 'iv' were printed across its edges."""
+    code = without_comments(template)
+    assert '\\settowidth{\\jbenumwidth}{#2}' in code
+    assert '\\hbox to\\jbenumwidth' in code
+
+
 @pytest.mark.parametrize('level', ['part', 'section', 'subsection'])
 def test_template_separator_pages_carry_the_name_alone(template, level):
     """Beamer's own templates print "Section 1" above the name; ours are
@@ -1821,19 +1866,26 @@ def test_slide_metadata_itemsep_reaches_a_nested_list(render):
 ###########################################
 
 @pytest.mark.parametrize('markdown, expected', [
-    pytest.param('(a) one\n(b) two\n', '[(a)]', id='parens-alpha'),
-    pytest.param('(A) one\n(B) two\n', '[(A)]', id='parens-upper'),
-    pytest.param('(i) one\n(ii) two\n', '[(i)]', id='parens-roman'),
-    pytest.param('(I) one\n(II) two\n', '[(I)]', id='parens-upper-roman'),
-    pytest.param('a) one\nb) two\n', '[a)]', id='one-paren'),
-    pytest.param('(1) one\n(2) two\n', '[(1)]', id='parens-arabic'),
-    pytest.param('1) one\n2) two\n', '[1)]', id='arabic-paren'),
+    pytest.param('(a) one\n(b) two\n', '[a]', id='parens-alpha'),
+    pytest.param('(A) one\n(B) two\n', '[A]', id='parens-upper'),
+    pytest.param('(i) one\n(ii) two\n', '[i]', id='parens-roman'),
+    pytest.param('(I) one\n(II) two\n', '[I]', id='parens-upper-roman'),
+    pytest.param('a) one\nb) two\n', '[a]', id='one-paren'),
+    pytest.param('(1) one\n(2) two\n', '', id='parens-arabic'),
+    pytest.param('1) one\n2) two\n', '', id='arabic-paren'),
 ])
 def test_list_marker_sets_the_template(render, markdown, expected):
-    """What the author wrote the first marker as is what the list looks
-like: beamer reads an enumerate's optional argument as that template."""
+    """How the author wrote the first marker is how the list counts:
+beamer reads an enumerate's optional argument as that template.  The
+brackets are not part of it -- the label is set in a square, which is
+bracket enough -- so '(a)' and 'a)' both count in letters."""
     body = render('# S\n\n%s' % markdown)
-    assert '\\begin{enumerate}%s' % expected in body
+    assert '\\begin{enumerate}%s\n' % expected in body
+
+
+def test_the_brackets_are_not_printed(render):
+    """They would be set inside the square, where they read as neither."""
+    assert '(a)' not in render('# S\n\n(a) one\n(b) two\n')
 
 
 def test_a_plain_ordered_list_is_unchanged(render):
@@ -1859,7 +1911,7 @@ def test_a_list_starting_elsewhere_keeps_its_style(render):
     """'(c)' is the alphabetic template from its third letter, not a literal
 'c' in front of every item."""
     body = render('# S\n\n(c) three\n(d) four\n')
-    assert '\\begin{enumerate}[(a)]' in body
+    assert '\\begin{enumerate}[a]' in body
 
 
 def test_an_enumerate_inside_a_bullet_list_is_still_the_first_level(render):
@@ -1887,8 +1939,11 @@ def test_three_levels_each_keep_their_own_template(render):
             (i) middle
                 (1) inner
     """))
-    for template in ('[(a)]', '[(i)]', '[(1)]'):
-        assert '\\begin{enumerate}%s' % template in body
+    for template in ('[a]', '[i]'):
+        assert '\\begin{enumerate}%s\n' % template in body
+    # the arabic one counts the way enumerate does anyway, and says so by
+    # taking no argument at all
+    assert '\\begin{enumerate}\n' in body
 
 
 def test_a_nested_list_counts_from_its_own_counter(render):
@@ -1901,7 +1956,7 @@ def test_a_nested_list_counts_from_its_own_counter(render):
 
             (c) nested
     """))
-    assert '\\begin{enumerate}[(a)]' in body
+    assert '\\begin{enumerate}[a]' in body
     assert '\\setcounter{enumii}{2}' in body
 
 
@@ -1924,7 +1979,7 @@ def test_a_lettered_list_nests_under_an_item(render):
 allows only for a list starting at one -- a rule marko tests by looking for
 the digit."""
     body = render('# S\n\n1. outer\n2. outer two\n    (a) nested\n')
-    assert '\\begin{enumerate}[(a)]\n\\tightlist\n\\item nested' in body
+    assert '\\begin{enumerate}[a]\n\\tightlist\n\\item nested' in body
 
 
 def test_list_items_are_still_markdown(render):
@@ -1989,10 +2044,11 @@ def test_an_unclosed_bracket_does_not_find_a_later_brace(render):
 
 
 def test_differently_written_markers_are_different_lists(render):
-    """'(a)' and 'a)' do not continue each other."""
+    """'(a)' and 'a)' do not continue each other.  They are set alike, so
+what says so is the second one starting over rather than counting on."""
     body = render('# S\n\n(a) one\n\na) two\n')
-    assert '\\begin{enumerate}[(a)]' in body
-    assert '\\begin{enumerate}[a)]' in body
+    assert body.count('\\begin{enumerate}[a]') == 2
+    assert 'setcounter' not in body
 
 
 @pytest.mark.parametrize('line', [

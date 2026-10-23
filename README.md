@@ -536,7 +536,7 @@ and the build stops with `Missing \begin{document}`.
 
 ### Ordered lists
 
-The marker you write is the one that appears. `1.` is an ordinary numbered
+The marker you write is how the list counts. `1.` is an ordinary numbered
 list, and the lettered and roman forms work as they read:
 
 ```markdown
@@ -549,6 +549,10 @@ list, and the lettered and roman forms work as they read:
 (A) upper case
 b) one parenthesis is enough
 ```
+
+The labels come out the way the numbers do: the letter or numeral alone, in
+the small square the theme sets a numbered list in. The brackets say how to
+count and are not printed, so `(a)` and `a)` look alike on the slide.
 
 The items stay Markdown — `**bold**`, maths, nested lists and all — because
 only the marker changed.
@@ -572,9 +576,11 @@ Two details worth knowing:
   list and `(t)`, `(u)`, `(v)` is one alphabetic one.
 
 Written differently, written separately: `(a)` and `a)` are two lists, not
-one, the same way `*` and `-` are.
+one, the same way `*` and `-` are. They are set alike, so what shows it is
+the second one starting over at `a` rather than carrying on.
 
-They nest, each level keeping the marker it was written with:
+They nest, each level counting the way it was written and taking the square
+of its own level:
 
 ```markdown
 (a) outer
@@ -582,9 +588,10 @@ They nest, each level keeping the marker it was written with:
         (1) inner
 ```
 
-LaTeX allows four levels of list nesting and no more — a fifth is
-`LaTeX Error: Too deeply nested`, which is its limit rather than this
-tool's, and a deck of four plain `1.` levels hits it just the same.
+Beamer allows three levels of list nesting and no more — a fourth is
+`LaTeX Error: Too deeply nested`, which is beamer's limit rather than this
+tool's, and a deck of four plain `1.` levels hits it just the same. (Plain
+LaTeX allows four; beamer has templates for three.)
 
 ### Images
 
