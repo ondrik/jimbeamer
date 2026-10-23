@@ -412,6 +412,34 @@ Do **not** write `\section{...}` as a line of raw LaTeX instead: everything at
 the top level is wrapped into a frame, so it would become a frame of its own
 or be swallowed by the one above it.
 
+### A preamble of your own
+
+`header-includes` in the metadata is YAML, which is a poor place to write
+LaTeX: a block scalar, its indentation, and backslashes to watch. `@preamble`
+is the same thing written in the deck instead:
+
+```markdown
+@preamble
+\usepackage{tikz}
+\usetikzlibrary{automata}
+\newcommand{\KLEE}{KLEE\xspace}
+@end
+```
+
+The contents are LaTeX and nothing else — not Markdown, and not touched on
+the way through. It is taken out of the source before anything else reads it,
+so a `%` line in there is a LaTeX comment and stays one, where a `%` line
+anywhere else in a deck is a note to yourself that never reaches the output.
+
+It may appear anywhere and as often as you like; the pieces land in the
+preamble in the order they were written, after whatever `header-includes`
+gave. The preamble reads top to bottom, so what the deck says last wins.
+
+`@preamble` inside a fenced code block or a hand-written verbatim
+environment is not one of these, for the same reason a `%` there is not a
+comment. A missing `@end` is reported on stderr and the block ends at the
+next heading, so it costs a slide rather than the rest of the deck.
+
 ### Environments: the `@` directives
 
 Two syntaxes, and which one you pick is what says how the contents are

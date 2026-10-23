@@ -39,6 +39,133 @@ template is otherwise defeated by the comments explaining why it is absent.
 # split_frontmatter() -- recognizing and parsing the metadata block
 ###########################################
 
+###########################################
+# @preamble -- LaTeX for the preamble, written in the deck
+###########################################
+
+def test_preamble_reaches_the_preamble(jimbeamer, opts):
+    out = jimbeamer.convert(doc("""
+        @preamble
+        \\usepackage{tikz}
+        @end
+
+        # S
+
+        text
+    """), '$headerincludes', opts())
+    assert out == '\\usepackage{tikz}'
+
+
+def test_preamble_leaves_nothing_in_the_body(jimbeamer, opts):
+    body = jimbeamer.convert(doc("""
+        @preamble
+        \\usepackage{tikz}
+        @end
+
+        # S
+
+        text
+    """), '$slides', opts())
+    assert 'tikz' not in body
+    assert 'preamble' not in body
+
+
+def test_several_preambles_are_joined_in_order(jimbeamer, opts):
+    out = jimbeamer.convert(doc("""
+        @preamble
+        \\usepackage{one}
+        @end
+
+        # S
+
+        @preamble
+        \\usepackage{two}
+        @end
+    """), '$headerincludes', opts())
+    assert out == '\\usepackage{one}\n\\usepackage{two}'
+
+
+def test_preamble_comes_after_header_includes(jimbeamer, opts):
+    """The preamble reads top to bottom, so what the deck wrote last wins."""
+    out = jimbeamer.convert(doc("""
+        ---
+        header-includes: \\usepackage{first}
+        ---
+
+        @preamble
+        \\usepackage{second}
+        @end
+
+        # S
+    """), '$headerincludes', opts())
+    assert out == '\\usepackage{first}\n\\usepackage{second}'
+
+
+def test_a_percent_line_in_a_preamble_is_latex(jimbeamer, opts):
+    """It is taken out before the comment stripper runs, so a '%' in there
+is a LaTeX comment and stays one."""
+    out = jimbeamer.convert(doc("""
+        @preamble
+        % a note for LaTeX
+        \\usepackage{tikz}
+        @end
+
+        # S
+    """), '$headerincludes', opts())
+    assert out.startswith('% a note for LaTeX')
+
+
+def test_preamble_may_name_what_it_closes(jimbeamer, opts):
+    out = jimbeamer.convert('@preamble\n\\usepackage{tikz}\n@end preamble\n'
+                            '\n# S\n', '$headerincludes', opts())
+    assert out == '\\usepackage{tikz}'
+
+
+def test_a_preamble_inside_a_fence_is_not_one(jimbeamer, opts):
+    """As with a '%' there: inside a fence it is somebody else's text."""
+    body = jimbeamer.convert(doc("""
+        # S
+
+        ```markdown
+        @preamble
+        \\usepackage{tikz}
+        @end
+        ```
+    """), '$slides', opts())
+    assert '@preamble' in body
+    assert '\\usepackage{tikz}' in body
+
+
+def test_a_preamble_inside_a_verbatim_environment_is_not_one(jimbeamer, opts):
+    body = jimbeamer.convert('# S\n\n\\begin{verbatim}\n@preamble\n'
+                             '\\end{verbatim}\n', '$slides', opts())
+    assert '@preamble' in body
+
+
+def test_an_unclosed_preamble_ends_at_a_heading(jimbeamer, opts, capsys):
+    """So a missing '@end' costs a slide rather than the rest of the deck."""
+    out = jimbeamer.convert(doc("""
+        @preamble
+        \\usepackage{tikz}
+
+        # S
+
+        text
+    """), '$headerincludes|$slides', opts())
+    preamble, slides = out.split('|')
+    assert '\\usepackage{tikz}' in preamble
+    assert '\\begin{frame}{S}' in slides
+    assert 'text' in slides
+    assert 'never closed' in capsys.readouterr().err
+
+
+def test_an_unclosed_preamble_at_the_end_is_reported(jimbeamer, opts, capsys):
+    out = jimbeamer.convert('# S\n\n@preamble\n\\usepackage{tikz}\n',
+                            '$headerincludes', opts())
+    assert out == '\\usepackage{tikz}'
+    assert 'never closed' in capsys.readouterr().err
+
+
 def test_frontmatter_is_parsed(jimbeamer):
     meta, body = jimbeamer.split_frontmatter(doc("""
         ---

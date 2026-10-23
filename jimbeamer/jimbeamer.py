@@ -228,6 +228,11 @@ OVERLAY_RE = re.compile(r'(<[^>\n]*>)[ \t]*')
 # as far as an environment can reach.
 HEADING_LINE_RE = re.compile(r'[ \t]{0,3}#{1,6}(?:[ \t]|$)')
 
+# '@preamble', which opens a block of LaTeX for the preamble rather than an
+# environment on a slide.  Taken out of the source before marko runs, so
+# that what is between the markers is nobody's Markdown.
+PREAMBLE_OPEN_RE = re.compile(r'[ \t]{0,3}@preamble[ \t]*$')
+
 # A bare number is a fraction of \textwidth, so '@column 0.3' is enough.
 BARE_NUMBER_RE = re.compile(r'\d*\.?\d+$')
 
@@ -554,6 +559,85 @@ numbers in the body still match the input file.
                  % (PROG, type(meta).__name__))
 
     return meta, '\n' * match.group(0).count('\n') + text[match.end():]
+
+
+###########################################
+def split_preamble(text):
+    """split_preamble(str) -> (str, str)
+
+Takes the '@preamble' blocks out of `text' and hands them back with what is
+left of the document.
+
+The contents are LaTeX for the preamble and are not read as anything else:
+this runs before marko, and before the comment stripper, so a '%' line in
+there is a LaTeX comment and stays one.  Several blocks are allowed and are
+joined in the order they were written.
+
+A block inside a fenced code block or a hand-written verbatim environment is
+not one of these, for the same reason a '%' there is not a comment.  A
+heading ends one, as it ends a directive, so that a missing '@end' costs a
+slide rather than the rest of the deck.
+"""
+    pieces, kept = [], []
+    block = None                # the lines of the block being collected
+    fence = None
+    verbatim = None
+
+    for line in text.splitlines(keepends=True):
+        if block is not None:
+            end = DIRECTIVE_END_RE.match(line)
+            if end and end.group('name') in (None, 'preamble'):
+                pieces.append(''.join(block))
+                block = None
+                continue
+            if HEADING_LINE_RE.match(line):
+                print("%s: warning: '@preamble' was never closed" % PROG,
+                      file=sys.stderr)
+                pieces.append(''.join(block))
+                block = None
+                kept.append(line)
+                continue
+            block.append(line)
+            continue
+
+        if fence is not None:
+            kept.append(line)
+            match = CODE_FENCE_RE.match(line)
+            if match and match.group(1)[0] == fence[0] \
+                    and len(match.group(1)) >= len(fence):
+                fence = None
+            continue
+
+        if verbatim is not None:
+            kept.append(line)
+            if re.match(r'[ \t]*\\end\{%s\}' % re.escape(verbatim), line):
+                verbatim = None
+            continue
+
+        match = CODE_FENCE_RE.match(line)
+        if match:
+            fence = match.group(1)
+            kept.append(line)
+            continue
+
+        match = VERBATIM_BEGIN_RE.match(line)
+        if match:
+            verbatim = match.group(1)
+            kept.append(line)
+            continue
+
+        if PREAMBLE_OPEN_RE.match(line):
+            block = []
+            continue
+
+        kept.append(line)
+
+    if block is not None:
+        print("%s: warning: '@preamble' was never closed" % PROG,
+              file=sys.stderr)
+        pieces.append(''.join(block))
+
+    return ''.join(pieces).strip('\n'), ''.join(kept)
 
 
 ###########################################
@@ -2145,14 +2229,23 @@ is a Literal and never reaches this either, which is the way out.
 
 ###########################################
 class BeamerMarkdown(marko.Markdown):
-    """marko.Markdown with the '%' comment lines taken out of the source.
+    """marko.Markdown with the '%' comment lines and the '@preamble' blocks
+taken out of the source.
 
 parse() is the hook marko documents for preprocessing the text, and doing it
 here rather than in convert() means anything that parses a document gets it,
 the tests included.
+
+What the preamble blocks held is left on the instance for convert() to pick
+up; a caller rendering a body and no document, as the tests do, simply does
+not ask.
 """
 
+    #: the '@preamble' blocks of the last document parsed, joined
+    preamble = ''
+
     def parse(self, text):
+        self.preamble, text = split_preamble(text)
         return super().parse(strip_comments(text))
 
 
@@ -2200,6 +2293,15 @@ Converts the Markdown source `text' into a complete Beamer document.
 
     markdown = make_markdown(opts, meta)
     ast = markdown.parse(body)
+
+    # '@preamble' is the inline spelling of 'header-includes', so it lands in
+    # the same place and after it: what the deck wrote last wins, as the
+    # preamble reads top to bottom.  Read now, because rendering the metadata
+    # below parses again and the blocks of that are nobody's preamble.
+    if markdown.preamble:
+        written = [str(piece)
+                   for piece in as_list(meta.get('header-includes'))]
+        meta['header-includes'] = '\n'.join(written + [markdown.preamble])
     if opts.dump_ast:
         for child in ast.children:
             print(child, file=sys.stderr)

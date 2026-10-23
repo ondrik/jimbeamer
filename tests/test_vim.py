@@ -43,6 +43,11 @@ title: A slide
 nosuchkey: 1
 ---
 
+@preamble
+\\usepackage{tikz}
+% a preamble comment
+@end preamble
+
 @columns
 @column 0.45
 ```C
@@ -127,9 +132,16 @@ syntax groups its characters fell into, in the order they appear.
 
 
 def groups_on(probed, needle):
-    """groups_on([(str, [str])], str) -> [str]: the line holding `needle'."""
+    """groups_on([(str, [str])], str) -> [str]: the line holding `needle'.
+
+A needle ending in a newline has to be the whole line, which is how '@end'
+is told from '@end preamble'.
+"""
     for line, groups in probed:
-        if needle in line:
+        if needle.endswith('\n'):
+            if line.strip() == needle.strip():
+                return groups
+        elif needle in line:
             return groups
     raise AssertionError('no line holding %r' % needle)
 
@@ -174,7 +186,12 @@ def example(tmp_path_factory):
     pytest.param('title: A slide', 'jimbeamerSlideKey', id='slide-key'),
     pytest.param('nosuchkey: 1', 'jimbeamerMetaKey', id='unknown-slide-key'),
     pytest.param('@columns', 'jimbeamerDirective', id='directive'),
-    pytest.param('@end', 'jimbeamerDirectiveEnd', id='directive-end'),
+    pytest.param('@preamble', 'jimbeamerDirective', id='preamble-open'),
+    pytest.param('@end preamble', 'jimbeamerDirective', id='preamble-end'),
+    # the body is LaTeX, not Markdown: it was markdownEscape before
+    pytest.param('\\usepackage{tikz}', 'jimbeamerLatexMacro', id='preamble'),
+    pytest.param('% a preamble comment', 'jimbeamerComment', id='preamble-%'),
+    pytest.param('@end\n', 'jimbeamerDirectiveEnd', id='directive-end'),
     pytest.param('int main(void)', 'jimbeamerCodeFence', id='code-fence'),
     pytest.param('KLEE & a symbolic', 'jimbeamerLatexEnv', id='latex-env'),
     pytest.param('$x_1 \\land y_2$', 'jimbeamerMath', id='maths'),

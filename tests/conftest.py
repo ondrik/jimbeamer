@@ -21,7 +21,8 @@ TEMPLATE = os.path.join(PACKAGE, 'beamer.tex.tpl')
 # knows: metadata (including a commented-out line, which is legal Markdown
 # but not legal YAML), frames, a frame attribute, nested lists, a pause,
 # maths whose underscores emphasis must not touch, both kinds of code fence,
-# columns and other directives, a verbatim environment, a figure, and a
+# columns and other directives, a verbatim environment, a figure, an
+# inline preamble, and a
 # slide declared by a metadata block of its own.
 #
 # Several tests assert invariants over this document rather than fixed
@@ -49,6 +50,11 @@ header-includes: |
 
   \providecommand{\hlbl}[1]{\textcolor{blue}{#1}}
 ---
+
+@preamble
+% LaTeX for the preamble, written in the deck rather than in YAML
+\newcommand{\jbdemo}[1]{\textit{#1}}
+@end
 
 # Lists and text
 * users try ==**input vectors**==, trying to break a program

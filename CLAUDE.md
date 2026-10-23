@@ -106,6 +106,14 @@ it only when it is a mapping naming a key in `SLIDE_METADATA_KEYS`. A setext
 heading still wins over all of it, because marko resolves that while parsing
 the paragraph above, before any element of ours is asked.
 
+**`@preamble` is not a directive.** It is taken out of the source in
+`BeamerMarkdown.parse()`, beside `strip_comments()` and for the same reason:
+anything that parses a document gets it, the tests included. Its contents are
+LaTeX, so they are lifted out *before* the comment stripper runs and a `%`
+line in there survives as the LaTeX comment it is. `convert()` reads what was
+collected off the instance and appends it to `header-includes`, which is why
+it needs no template variable of its own and works with a custom template.
+
 **Directive arguments are read from the first character.** `<`, `[` or `{`
 means the rest is LaTeX and is handed over exactly as written; anything else
 is *friendly* and interpreted — a bare number as a fraction of `\textwidth`,

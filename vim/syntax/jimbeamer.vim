@@ -89,6 +89,16 @@ syn match jimbeamerDirectiveArgs /.*$/ contained
 syn match jimbeamerDirectiveEnd /^\s\{0,3}@end\%([ \t]\+[A-Za-z][-A-Za-z0-9_]*\)\=[ \t]*$/
 syn match jimbeamerOverlay /<[^>\n]*>/ contained
 
+" '@preamble' is LaTeX for the preamble rather than an environment on a
+" slide, and its contents are nobody's Markdown.  After the general
+" directive match: where two items match in the same place vim prefers the
+" one defined last, and this one has to win the opening line.
+syn region jimbeamerPreamble matchgroup=jimbeamerDirective
+      \ start=/^\s\{0,3}@preamble[ \t]*$/
+      \ end=/^\s\{0,3}@end\%([ \t]\+preamble\)\=[ \t]*$/
+      \ end=/^\s\{0,3}#\{1,6}\%([ \t]\|$\)/me=s-1
+      \ keepend contains=jimbeamerLatexMacro,jimbeamerComment
+
 " ---------------------------------------------------------------------------
 " Raw LaTeX, which passthrough makes ordinary here
 " ---------------------------------------------------------------------------
@@ -171,6 +181,7 @@ hi def link jimbeamerOption           Special
 hi def link jimbeamerBreak            PreProc
 hi def link jimbeamerListMarker       Identifier
 hi def link jimbeamerDirective        Statement
+hi def link jimbeamerPreamble        String
 hi def link jimbeamerDirectiveEnd     Statement
 hi def link jimbeamerDirectiveArgs    Normal
 hi def link jimbeamerOverlay          Special
