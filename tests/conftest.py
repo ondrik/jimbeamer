@@ -14,7 +14,7 @@ import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PACKAGE = os.path.join(ROOT, 'jimbeamer')
-SCRIPT = os.path.join(PACKAGE, 'converter.py')
+SCRIPT = os.path.join(PACKAGE, 'jimbeamer.py')
 TEMPLATE = os.path.join(PACKAGE, 'beamer.tex.tpl')
 
 # A whole presentation in miniature, exercising every construct the renderer
@@ -153,9 +153,9 @@ about the tree they sit in.
 """
     if ROOT not in sys.path:
         sys.path.insert(0, ROOT)
-    import jimbeamer.converter
+    import jimbeamer.jimbeamer
 
-    return jimbeamer.converter
+    return jimbeamer.jimbeamer
 
 
 @pytest.fixture(scope='session')

@@ -5,7 +5,7 @@ principle is LaTeX passthrough: whatever the Markdown parser does not
 recognize is handed over to LaTeX untouched, so a slide can always fall back
 to raw LaTeX.
 
-The converter itself is jimbeamer.converter; this exposes only what a caller
+The converter itself is jimbeamer.jimbeamer; this exposes only what a caller
 needs, so that importing the package does not drag in marko until it is
 wanted.
 """
@@ -18,5 +18,5 @@ __all__ = ['VERSION', '__version__', 'main']
 
 def main():
     """main() -> None: the command, as installed by pip."""
-    from jimbeamer.converter import main as run
+    from jimbeamer.jimbeamer import main as run
     run()

@@ -25,7 +25,7 @@ and is nobody's dependency to declare.
 
 | File | What it is |
 |---|---|
-| `jimbeamer/converter.py` | the whole converter, one module |
+| `jimbeamer/jimbeamer.py` | the whole converter, one module |
 | `jimbeamer/__init__.py` | what `pip` installs the `jimbeamer` command against |
 | `jimbeamer/beamer.tex.tpl` | the Beamer preamble, external on purpose, and shipped as package data |
 | `pyproject.toml` | the package: dependencies, the console script, the metadata |
