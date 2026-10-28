@@ -103,6 +103,20 @@ jobs:
           python -m build
           twine check dist/*
 
+      # The sdist was built above and then never opened, which is how it
+      # came to ship a suite that could not run: setuptools' own defaults
+      # took tests/test_*.py and left conftest.py behind, so collection
+      # died on the first import.  Unpack it and run the copy inside it.
+      # The tests that read the workflows or the landing page skip here,
+      # because neither belongs in a release.
+      - name: The sdist's own suite must run in the sdist
+        run: |
+          mkdir -p /tmp/sdist
+          tar -xzf dist/*.tar.gz -C /tmp/sdist --strip-components=1
+          cd /tmp/sdist
+          pip install '.[test]'
+          pytest -q
+
       - name: Install the wheel somewhere with no checkout in sight
         run: |
           python -m venv /tmp/clean

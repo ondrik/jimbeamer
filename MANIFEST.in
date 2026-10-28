@@ -1,0 +1,9 @@
+# What the sdist carries beyond setuptools' own defaults.
+#
+# Those defaults picked up tests/test_*.py by themselves and nothing else,
+# which is the one wrong answer: the suite shipped without conftest.py, so
+# it could not even be collected, and without vim/, so test_vim.py failed
+# rather than skipped.  Either ship a suite that runs or ship none.
+include pytest.ini
+include tests/conftest.py
+recursive-include vim *.vim

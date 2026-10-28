@@ -1,5 +1,11 @@
+# 77 and not 64: 'license = "MIT"' with license-files below is PEP 639,
+# which earlier setuptools refuses outright -- "project.license must be
+# valid exactly by one definition (2 matches found)".  Nothing notices
+# while pip builds in isolation, since that fetches the newest setuptools;
+# it is a build with --no-build-isolation that stops, which is how a distro
+# packager builds.
 [build-system]
-requires = ["setuptools>=64"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -13,11 +19,16 @@ license-files = ["LICENSE"]
 keywords = ["markdown", "latex", "beamer", "slides", "presentation"]
 dynamic = ["version"]
 
-# The lower bounds are the versions it was developed against; earlier ones
-# may well work, but have not been tried.  marko is the one to watch: the
-# converter registers custom elements against its parser internals.
+# marko is the one to watch: the converter registers custom elements
+# against its parser internals.  2.2.3 is not where development started, it
+# is where the suite passes -- on 2.2.0 through 2.2.2 a raw environment
+# following a directive line loses its indentation and has '\\' collapsed to
+# '\', so a table row ends in a single backslash and pdflatex stops at
+# "Misplaced \noalign".  The converter exits 0 and says nothing, which is
+# why the floor has to carry it: a resolver that lands on 2.2.2 is not
+# otherwise told.  PyYAML's bound is the version it was developed against.
 dependencies = [
-    "marko>=2.2",
+    "marko>=2.2.3",
     "PyYAML>=6.0",
 ]
 
@@ -34,8 +45,12 @@ classifiers = [
     "Topic :: Multimedia :: Graphics :: Presentation",
 ]
 
+# Homepage is the landing page in docs/, which GitHub Pages serves; the
+# repository is reached by Source.  They are the two links PyPI puts in its
+# sidebar, and a reader wanting the tool and a reader wanting the code are
+# not the same reader.
 [project.urls]
-Homepage = "https://github.com/ondrik/jimbeamer"
+Homepage = "https://ondrik.github.io/jimbeamer/"
 Source = "https://github.com/ondrik/jimbeamer"
 Issues = "https://github.com/ondrik/jimbeamer/issues"
 

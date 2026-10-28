@@ -1,0 +1,18 @@
+# The landing page, served by GitHub Pages from this folder.  A stock theme
+# and one Markdown file is the whole of it: there is nothing to build, and
+# the page is a page rather than a second copy of the documentation.
+#
+# 'title' and 'description' are what the theme puts in the banner, and the
+# description is pyproject.toml's word for word -- a test says so, because
+# two descriptions of one tool are two things to keep true.
+theme: jekyll-theme-cayman
+title: jimbeamer
+description: Convert Markdown into LaTeX Beamer slides
+
+# Spelled out rather than left to GitHub to infer.  The theme links its
+# stylesheet through 'relative_url', so without a baseurl the page asks for
+# ondrik.github.io/assets/css/style.css -- off the end of the project site,
+# a 404, and a page with no styling at all.  A project site lives under the
+# repository name.
+url: https://ondrik.github.io
+baseurl: /jimbeamer

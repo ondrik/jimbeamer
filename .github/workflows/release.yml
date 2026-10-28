@@ -1,0 +1,105 @@
+name: release
+
+# A release is a tag and nothing else: push v0.1.0 and this builds it,
+# rehearses on TestPyPI and then uploads to PyPI.  Nothing here can be
+# retried by hand afterwards, which is the point -- PyPI never lets a
+# filename be used twice, not even after the release is deleted, so
+# jimbeamer-0.1.0.tar.gz is spent the moment it lands.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The tag is what the release is called; _version.py is what ends up
+      # in the metadata and in the filename.  They are two places saying
+      # the same thing, so they can disagree -- and the moment to find out
+      # is here, before anything has been uploaded.
+      - name: The tag and _version.py must agree
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version=$(python -c 'import jimbeamer._version as v; print(v.VERSION)')
+          if [ "$tag" != "$version" ]; then
+            echo "tag $GITHUB_REF_NAME says $tag, _version.py says $version"
+            exit 1
+          fi
+
+      # --strict so that a description PyPI would render badly fails here
+      # rather than being discovered on the project page.
+      - name: Build
+        run: |
+          pip install build twine
+          python -m build
+          twine check --strict dist/*
+
+      # The suite runs on every push already; this is the same artifact the
+      # upload will use, exercised once more as a stranger would meet it.
+      - name: Install the wheel and use it
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install dist/*.whl
+          cd /tmp
+          /tmp/clean/bin/jimbeamer --version
+          printf -- '---\ntitle: T\n---\n\n# S\n\n* a bullet\n' > deck.jimd
+          /tmp/clean/bin/jimbeamer deck.jimd -o deck.tex
+          grep -q 'begin{frame}{S}' deck.tex
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  # Both uploads go through Trusted Publishing: the job proves to PyPI that
+  # it is this workflow in this repository, and no token is stored anywhere.
+  # It needs a publisher configured on each side -- pypi.org and
+  # test.pypi.org separately -- naming owner, repository, release.yml and
+  # the environment below.
+  testpypi:
+    name: rehearse on TestPyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write           # Trusted Publishing; job level, not workflow
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      # skip-existing because a rehearsal may already have put this version
+      # there by hand.  The real upload below gets no such licence.
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  pypi:
+    name: publish to PyPI
+    needs: testpypi
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

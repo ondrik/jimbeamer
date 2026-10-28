@@ -29,9 +29,13 @@ and is nobody's dependency to declare.
 | `jimbeamer/__init__.py` | what `pip` installs the `jimbeamer` command against |
 | `jimbeamer/beamer.tex.tpl` | the Beamer preamble, external on purpose, and shipped as package data |
 | `pyproject.toml` | the package: dependencies, the console script, the metadata |
+| `MANIFEST.in` | what the sdist carries beyond setuptools' defaults, which took half the suite and left `conftest.py` |
+| `.github/workflows/` | `test.yml` on every push, `release.yml` on a tag |
+| `docs/` | the landing page, served by GitHub Pages from this folder |
 | `tests/conftest.py` | fixtures, and `EXAMPLE` — the presentation in miniature that stands in for the lecture, which is not in this repository |
 | `tests/test_jimbeamer.py` | the suite |
 | `tests/test_vim.py` | the syntax file, checked by asking vim what it coloured |
+| `tests/test_packaging.py` | the metadata, the landing page and the release workflow — what only matters once this leaves the directory |
 | `pytest.ini` | testpaths, and deprecation warnings promoted to errors |
 | `README.md` | how to install it, how to use it, and the input format in full |
 | `TODO.md` | what is missing, wrong, or undecided |
@@ -263,6 +267,13 @@ the way `$titlepage`, `$sectionpages` and `$toc` are.
 
 - Branch is `master`. Commit messages explain *why*, and record what was
   deliberately left undone.
+- **A release is a tag.** Push `v0.1.0` and `release.yml` builds it,
+  rehearses on TestPyPI and uploads to PyPI, with no token stored anywhere
+  — both uploads are Trusted Publishing, which needs a publisher configured
+  on each side naming this repository, `release.yml` and the environment.
+  The tag and `jimbeamer/_version.py` must agree or the build stops before
+  anything is uploaded, because PyPI never lets a filename be used twice:
+  `jimbeamer-0.1.0.tar.gz` is spent the moment it lands, deletion included.
 - Code style follows the original script: `####` separators between functions,
   docstrings in the `name(args) -> type` form, single quotes, 79 columns.
 - Tests accompany the code in the same commit. One commit here failed that and

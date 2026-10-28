@@ -1,5 +1,7 @@
 # jimbeamer
 
+[![tests](https://github.com/ondrik/jimbeamer/actions/workflows/test.yml/badge.svg)](https://github.com/ondrik/jimbeamer/actions/workflows/test.yml)
+
 Turns Markdown into LaTeX Beamer slides. A lightweight alternative to
 `pandoc -t beamer`, built on [marko](https://github.com/frostming/marko).
 
@@ -825,7 +827,7 @@ The ones that have actually cost time:
 
 ## What it does not do
 
-Known gaps, kept in full in [`TODO.md`](TODO.md):
+Known gaps, kept in full in [`TODO.md`](https://github.com/ondrik/jimbeamer/blob/master/TODO.md):
 
 * **Pipe tables.** Write `tabularx` by hand.
 * **`##` as a beamer block.** A heading below the slide level is
@@ -879,7 +881,7 @@ reads as the start of maths, far from where you made the mistake.
 
 ## Editor support
 
-A vim syntax file is in [`vim/`](vim). It loads on top of the stock Markdown
+A vim syntax file is in [`vim/`](https://github.com/ondrik/jimbeamer/tree/master/vim). It loads on top of the stock Markdown
 syntax, so lists, emphasis and code fences keep working, and adds what this
 format puts on top: the two kinds of metadata block, the `@` directives, the
 `{...}` attribute list, all four maths spellings, `==highlight==`,
@@ -927,9 +929,9 @@ to it when you add a construct, and those tests come along.
 
 Three other documents, each with a job the others do not do:
 
-* [`CLAUDE.md`](CLAUDE.md) — what the tool does, how it is built, and why.
-* [`TODO.md`](TODO.md) — what is missing, wrong, or undecided.
-* [`HANDOFF.md`](HANDOFF.md) — where things stand, and what lives outside the
+* [`CLAUDE.md`](https://github.com/ondrik/jimbeamer/blob/master/CLAUDE.md) — what the tool does, how it is built, and why.
+* [`TODO.md`](https://github.com/ondrik/jimbeamer/blob/master/TODO.md) — what is missing, wrong, or undecided.
+* [`HANDOFF.md`](https://github.com/ondrik/jimbeamer/blob/master/HANDOFF.md) — where things stand, and what lives outside the
   repository.
 
 `git log` is the fine-grained record: the commit messages explain why each
@@ -938,4 +940,4 @@ thing is the way it is, and several say what was deliberately left undone.
 
 ## Licence
 
-MIT — see [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](https://github.com/ondrik/jimbeamer/blob/master/LICENSE).
