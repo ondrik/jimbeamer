@@ -2340,14 +2340,14 @@ def test_variables_ignore_empty_metadata_entries(jimbeamer):
 
 @pytest.mark.parametrize('key', ['author', 'institute'])
 def test_variables_join_people_with_and(jimbeamer, key):
-    variables = jimbeamer.build_variables({key: ['Jakub Havlík', 'Ondřej Lengál']}, '')
-    assert variables[key] == 'Jakub Havlík \\and Ondřej Lengál'
+    variables = jimbeamer.build_variables({key: ['Jane Doe', 'John Smith']}, '')
+    assert variables[key] == 'Jane Doe \\and John Smith'
 
 
 @pytest.mark.parametrize('key', ['author', 'institute'])
 def test_variables_accept_a_lone_name(jimbeamer, key):
-    variables = jimbeamer.build_variables({key: 'Ondřej Lengál'}, '')
-    assert variables[key] == 'Ondřej Lengál'
+    variables = jimbeamer.build_variables({key: 'Jane Doe'}, '')
+    assert variables[key] == 'Jane Doe'
 
 
 def test_variables_join_other_lists_with_newlines(jimbeamer):
@@ -2391,21 +2391,21 @@ def test_variables_short_forms_fall_back_to_the_long_ones(jimbeamer, short, long
 
 def test_variables_short_institute_falls_back_to_the_institute(jimbeamer):
     """It appears in the footline beside the author, as it does in pandoc."""
-    variables = jimbeamer.build_variables({'institute': 'Brno University'}, '')
-    assert variables['shortinstitute'] == 'Brno University'
+    variables = jimbeamer.build_variables({'institute': 'Example University'}, '')
+    assert variables['shortinstitute'] == 'Example University'
 
 
 def test_variables_short_institute_can_be_given_explicitly(jimbeamer):
     variables = jimbeamer.build_variables(
-        {'institute': 'Brno University of Technology', 'short-institute': 'BUT'},
+        {'institute': 'Example University of Technology', 'short-institute': 'EUT'},
         '')
-    assert variables['shortinstitute'] == 'BUT'
+    assert variables['shortinstitute'] == 'EUT'
 
 
 @pytest.mark.parametrize('short, long, value', [
-    pytest.param('shortinstitute', 'institute', 'FIT VUT', id='institute'),
+    pytest.param('shortinstitute', 'institute', 'Example University', id='institute'),
     pytest.param('shorttitle', 'title', 'A Long Title', id='title'),
-    pytest.param('shortauthor', 'author', 'Ondřej Lengál', id='author'),
+    pytest.param('shortauthor', 'author', 'Jane Doe', id='author'),
     pytest.param('shortdate', 'date', '3 November 2025', id='date'),
 ])
 def test_variables_an_empty_short_form_is_kept(jimbeamer, short, long, value):
@@ -2419,7 +2419,7 @@ of the footline"; falling back to the long form would do the opposite."""
 @pytest.mark.parametrize('key', ['short-institute', 'shortinstitute'])
 def test_variables_short_form_spelling(jimbeamer, key):
     """Hyphenated or not, the deck's own value is what counts."""
-    variables = jimbeamer.build_variables({'institute': 'FIT VUT', key: ''}, '')
+    variables = jimbeamer.build_variables({'institute': 'Example University', key: ''}, '')
     assert variables['shortinstitute'] == ''
 
 
@@ -2427,14 +2427,14 @@ def test_variables_a_valueless_short_form_still_falls_back(jimbeamer):
     """'short-institute:' with nothing after it is YAML None, not an empty
 string, and reads as "not given"."""
     variables = jimbeamer.build_variables(
-        {'institute': 'FIT VUT', 'short-institute': None}, '')
-    assert variables['shortinstitute'] == 'FIT VUT'
+        {'institute': 'Example University', 'short-institute': None}, '')
+    assert variables['shortinstitute'] == 'Example University'
 
 
 def test_convert_empty_short_institute_reaches_the_document(convert):
-    result = convert('---\ntitle: T\ninstitute: "FIT VUT"\n'
+    result = convert('---\ntitle: T\ninstitute: "Example University"\n'
                      'short-institute: ""\n---\n\n# S\nx\n')
-    assert '\\institute[]{FIT VUT}' in result
+    assert '\\institute[]{Example University}' in result
 
 
 @pytest.mark.parametrize('key', ['short-title', 'shorttitle'])
@@ -2687,7 +2687,7 @@ def test_compiles_everything_we_emit(tmp_path, script):
     document = doc("""
         ---
         title: "Compile test"
-        author: "Ondřej Lengál"
+        author: "Jane Doe"
         theme: "Madrid"
         aspectratio: 169
         header-includes: |
@@ -2832,7 +2832,7 @@ def test_cli_unwritable_output_is_an_error(script, deck_path, tmp_path):
 @pytest.mark.parametrize('source', ['stdin', 'file'])
 def test_cli_handles_non_ascii(script, tmp_path, source):
     """UTF-8 whatever the locale says; FileType used the locale encoding."""
-    text = '---\ntitle: "Ondřej Lengál"\n---\n\n# Přehled\n'
+    text = '---\ntitle: "Naïve café"\n---\n\n# Résumé\n'
     if source == 'stdin':
         done = run(script, stdin=text)
     else:
@@ -2840,7 +2840,7 @@ def test_cli_handles_non_ascii(script, tmp_path, source):
         deck.write_text(text, encoding='utf-8')
         done = run(script, str(deck))
     assert done.returncode == 0, done.stderr
-    assert 'Ondřej Lengál' in done.stdout
+    assert 'Naïve café' in done.stdout
 
 
 ###########################################

@@ -31,8 +31,8 @@ TEMPLATE = os.path.join(PACKAGE, 'beamer.tex.tpl')
 EXAMPLE = r'''---
 title: "An Example Deck"
 short-title: "Example"
-author: "Ondřej Lengál"
-institute: "FIT VUT v Brně"
+author: "Jane Doe"
+institute: "Example University"
 date: "3 November 2025"
 theme: "Madrid"
 colortheme: "dolphin"
@@ -58,6 +58,7 @@ header-includes: |
 
 # Lists and text
 * users try ==**input vectors**==, trying to break a program
+* accented prose reaches the PDF: *naïve*, *café*, *Köln*
 * [not true]{.hlrd}, and \hlbl{the macro spelled out} still works
 * a link whose URL has a fragment and an escape:
   [try it](https://live.example.org/#codez=a%2Bb)

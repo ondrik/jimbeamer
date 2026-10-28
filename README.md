@@ -20,7 +20,7 @@ both work without the tool knowing either name, and why you can write
 ---
 title: 'Symbolic Execution'
 subtitle: 'SAV --- Static Analysis and Verification'
-author: 'Ondřej Lengál'
+author: 'Jane Doe'
 toc: true
 theme: Madrid
 ---
@@ -91,8 +91,7 @@ only recommends. If your deck writes tables, it needs tabularx too — the
 template does not load that for you either.
 
 The template loads no `fontenc`, no `inputenc` and no `babel`, and `lang:` is
-not a key it reads. A deck with accented prose — `Ondřej Lengál`, `FIT VUT v
-Brně` — compiles cleanly and looks right, but the glyphs are OT1 composites:
+not a key it reads. A deck with accented prose — `naïve`, `café`, `Köln` — compiles cleanly and looks right, but the glyphs are OT1 composites:
 the PDF cannot be searched or copied out of, and an accented word is never
 hyphenated. One line of `header-includes` fixes both:
 
@@ -177,8 +176,8 @@ recognized at all, and every key silently becomes slide text.
 ---
 title:    'Symbolic Execution'
 subtitle: 'SAV --- Static Analysis and Verification'
-author:   'Ondřej Lengál'
-institute: 'FIT BUT'
+author:   'Jane Doe'
+institute: 'Example University'
 date:     '4 November 2025'
 short-institute: ''
 theme:    Madrid
@@ -383,7 +382,7 @@ and write the frame yourself, as the first thing in the body:
   \includegraphics[width=0.3\textwidth]{logo.png}\par
   \vspace{1em}
   {\Large Symbolic Execution}\par
-  {\small Ondřej Lengál}
+  {\small Jane Doe}
 \end{center}
 ````
 
