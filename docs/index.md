@@ -69,8 +69,8 @@ $ pipx install jimbeamer
 environment of its own. Then:
 
 ```console
-$ jimbeamer deck.jimd -o deck.tex     # convert
-$ jimbeamer --pdf deck.jimd           # convert, and build the PDF
+$ jimbeamer deck.md -o deck.tex     # convert
+$ jimbeamer --pdf deck.md           # convert, and build the PDF
 ```
 
 `--pdf` wants a LaTeX installation; converting does not.
@@ -82,7 +82,7 @@ $ jimbeamer --pdf deck.jimd           # convert, and build the PDF
 ```markdown
 ---
 title: 'Symbolic Execution'
-author: 'Jan Novák'
+author: 'Jane Doe'
 theme: Madrid
 ---
 

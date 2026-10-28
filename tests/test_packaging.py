@@ -13,6 +13,8 @@ checked by reading, and each one of them has been wrong at least once.
 import io
 import os
 import re
+import subprocess
+import sys
 
 import pytest
 
@@ -42,8 +44,9 @@ def read(*parts):
 def front_matter(text):
     """front_matter(str) -> dict
 
-The YAML block at the head of a Jekyll page.  A page without one is not
-processed by Jekyll at all, so its absence is a defect rather than a style.
+The YAML block at the head of a Jekyll page.  GitHub Pages runs
+jekyll-optional-front-matter, so a page without one is still rendered --
+what the block is here for is to name the layout.
 """
     match = re.match(r'---\n(.*?)\n---\n', text, re.S)
     assert match, 'no Jekyll front matter'
@@ -132,10 +135,13 @@ these pointed at files that are not even in the sdist."""
 ###########################################
 
 @in_checkout
-def test_the_landing_page_is_processed_by_jekyll():
-    """Without front matter the file is copied verbatim and the theme never
-applies -- the page would be served as raw Markdown."""
-    assert front_matter(read('docs', 'index.md')) is not None
+def test_the_landing_page_names_a_layout_the_theme_has():
+    """jekyll-theme-cayman ships exactly one layout, 'default'.  Misspell
+it and the build still succeeds -- a warning in the log, and a bare
+fragment served with no banner, no stylesheet and no <html> around it.
+Asserting that front matter merely exists would not catch that, and on
+GitHub Pages, which runs jekyll-optional-front-matter, it proves nothing."""
+    assert front_matter(read('docs', 'index.md'))['layout'] == 'default'
 
 
 @in_checkout
@@ -213,16 +219,40 @@ def test_a_release_is_a_tag():
     assert workflow('release.yml')['on'] == {'push': {'tags': ['v*']}}
 
 
-@in_checkout
-def test_the_release_refuses_a_tag_that_disagrees_with_the_version():
-    """The tag and _version.py are two places saying the same thing, so
-they can disagree, and the filename a release takes is spent forever."""
+def guard_script(tmp_path):
+    """guard_script(Path) -> Path
+
+The release's tag check, lifted out of the workflow and made runnable.
+'python' is whatever the runner's setup-python left on the PATH, which
+here is the interpreter running the tests.
+"""
     build = workflow('release.yml')['jobs']['build']
-    guard = [step for step in build['steps']
+    steps = [step for step in build['steps']
              if 'tag' in step.get('name', '').lower()]
-    assert len(guard) == 1
-    assert '_version.py' in guard[0]['run']
-    assert 'exit 1' in guard[0]['run']
+    assert len(steps) == 1, 'one tag guard, or this is testing the wrong one'
+    path = tmp_path / 'guard.sh'
+    path.write_text(steps[0]['run'].replace('python ', '%s ' % sys.executable),
+                    encoding='utf-8')
+    return path
+
+
+@in_checkout
+@pytest.mark.parametrize('tag, refused', [
+    pytest.param('v%s' % conftest.VERSION_IN_TREE, False, id='agrees'),
+    pytest.param('v9.9.9', True, id='disagrees'),
+    pytest.param('%s' % conftest.VERSION_IN_TREE, False, id='no-v'),
+])
+def test_the_release_refuses_a_tag_that_disagrees(tmp_path, tag, refused):
+    """Run, not read.  This guard is the whole of what stands between a
+mistyped tag and a filename that can never be used again, and a test that
+greps it for the word 'exit' would pass against a guard that always
+exits 0."""
+    done = subprocess.run(
+        ['bash', str(guard_script(tmp_path))], cwd=ROOT, text=True,
+        env=dict(os.environ, GITHUB_REF_NAME=tag), capture_output=True)
+    assert bool(done.returncode) is refused, done.stdout + done.stderr
+    if refused:
+        assert '9.9.9' in done.stdout
 
 
 @in_checkout
@@ -258,6 +288,10 @@ conftest.py, so it cannot be collected, and without vim/, so test_vim.py
 fails rather than skips.  CI unpacks the sdist and runs it; this says what
 the file is for."""
     manifest = read('MANIFEST.in')
-    assert 'include tests/conftest.py' in manifest
-    assert 'include pytest.ini' in manifest
+    named = re.findall(r'(?m)^include (\S+)$', manifest)
+    assert sorted(named) == ['pytest.ini', 'tests/conftest.py']
+    # a rename would otherwise leave the line matching nothing, silently
+    for path in named:
+        assert os.path.exists(os.path.join(ROOT, path)), path
     assert 'recursive-include vim *.vim' in manifest
+    assert os.path.isdir(os.path.join(ROOT, 'vim'))

@@ -64,7 +64,7 @@ sidesteps the `error: externally-managed-environment` that a plain
 [PEP 668](https://peps.python.org/pep-0668/) Python. `pip install jimbeamer`
 inside a virtual environment does the same job.
 
-The two runtime dependencies, `marko` (>= 2.2) and `PyYAML` (>= 6.0), come
+The two runtime dependencies, `marko` (>= 2.2.3) and `PyYAML` (>= 6.0), come
 with it. Python 3.9 or newer.
 
 To work on it instead, or to get the vim syntax file, clone it:

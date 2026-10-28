@@ -8,6 +8,7 @@ tests need, and it lives here rather than in every test module.
 
 import argparse
 import os
+import re
 import sys
 
 import pytest
@@ -16,6 +17,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PACKAGE = os.path.join(ROOT, 'jimbeamer')
 SCRIPT = os.path.join(PACKAGE, 'jimbeamer.py')
 TEMPLATE = os.path.join(PACKAGE, 'beamer.tex.tpl')
+
+# Read rather than imported: the packaging tests want it before marko is
+# necessarily installed, and a release tag is checked against it.
+with open(os.path.join(PACKAGE, '_version.py'), encoding='utf-8') as _handle:
+    VERSION_IN_TREE = re.search(r"VERSION = '([^']+)'", _handle.read()).group(1)
 
 # A whole presentation in miniature, exercising every construct the renderer
 # knows: metadata (including a commented-out line, which is legal Markdown

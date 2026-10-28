@@ -18,9 +18,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -45,19 +45,22 @@ jobs:
           python -m build
           twine check --strict dist/*
 
-      # The suite runs on every push already; this is the same artifact the
-      # upload will use, exercised once more as a stranger would meet it.
+      # The suite is not run again here: test.yml runs it on every push to
+      # master, and a tag is made from a commit that is already there.  A
+      # tag itself runs nothing in test.yml -- tags are not branches --
+      # so if that ever stops being true this is where it would be noticed
+      # last.  What this step does is meet the wheel as a stranger would.
       - name: Install the wheel and use it
         run: |
           python -m venv /tmp/clean
           /tmp/clean/bin/pip install dist/*.whl
           cd /tmp
           /tmp/clean/bin/jimbeamer --version
-          printf -- '---\ntitle: T\n---\n\n# S\n\n* a bullet\n' > deck.jimd
-          /tmp/clean/bin/jimbeamer deck.jimd -o deck.tex
+          printf -- '---\ntitle: T\n---\n\n# S\n\n* a bullet\n' > deck.md
+          /tmp/clean/bin/jimbeamer deck.md -o deck.tex
           grep -q 'begin{frame}{S}' deck.tex
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: dist
           path: dist/
@@ -76,7 +79,7 @@ jobs:
       id-token: write           # Trusted Publishing; job level, not workflow
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: dist
           path: dist/
@@ -97,7 +100,7 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: dist
           path: dist/

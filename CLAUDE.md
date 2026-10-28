@@ -27,10 +27,11 @@ and is nobody's dependency to declare.
 |---|---|
 | `jimbeamer/jimbeamer.py` | the whole converter, one module |
 | `jimbeamer/__init__.py` | what `pip` installs the `jimbeamer` command against |
+| `jimbeamer/_version.py` | the version, alone so the build backend can read it without importing the converter — and what a release tag is checked against |
 | `jimbeamer/beamer.tex.tpl` | the Beamer preamble, external on purpose, and shipped as package data |
 | `pyproject.toml` | the package: dependencies, the console script, the metadata |
 | `MANIFEST.in` | what the sdist carries beyond setuptools' defaults, which took half the suite and left `conftest.py` |
-| `.github/workflows/` | `test.yml` on every push, `release.yml` on a tag |
+| `.github/workflows/` | `test.yml` on a push to `master` and on pull requests, `release.yml` on a tag |
 | `docs/` | the landing page, served by GitHub Pages from this folder |
 | `tests/conftest.py` | fixtures, and `EXAMPLE` — the presentation in miniature that stands in for the lecture, which is not in this repository |
 | `tests/test_jimbeamer.py` | the suite |
@@ -267,6 +268,11 @@ the way `$titlepage`, `$sectionpages` and `$toc` are.
 
 - Branch is `master`. Commit messages explain *why*, and record what was
   deliberately left undone.
+- **The landing page is `docs/`.** GitHub Pages must be pointed at the
+  `/docs` folder of `master`; left at the repository root, which is the
+  default, GitHub serves a zero-config render of `README.md` instead and
+  `docs/_config.yml` is never read -- so the theme, the title and the
+  `baseurl` all silently do nothing.
 - **A release is a tag.** Push `v0.1.0` and `release.yml` builds it,
   rehearses on TestPyPI and uploads to PyPI, with no token stored anywhere
   — both uploads are Trusted Publishing, which needs a publisher configured
