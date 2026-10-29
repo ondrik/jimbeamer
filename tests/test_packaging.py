@@ -256,12 +256,40 @@ exits 0."""
 
 
 @in_checkout
-def test_pypi_comes_after_the_rehearsal():
-    """TestPyPI first, so that a release that cannot work has somewhere to
-fail where the filename is not spent."""
+def test_pypi_comes_last_and_after_something_that_checks():
+    """The order is the whole argument for having TestPyPI in the chain at
+all: uploading to both in one run proves nothing unless something stands
+between them.  Two things do -- this job, which installs what was just
+published, and the 'pypi' environment's reviewer, who looks at it."""
     jobs = workflow('release.yml')['jobs']
     assert jobs['testpypi']['needs'] == 'build'
-    assert jobs['pypi']['needs'] == 'testpypi'
+    assert jobs['verify']['needs'] == 'testpypi'
+    assert jobs['pypi']['needs'] == 'verify'
+
+
+@in_checkout
+def test_the_rehearsal_is_installed_from_testpypi_and_pinned():
+    """Unpinned, pip could satisfy the requirement from a copy an earlier
+rehearsal left behind and the step would pass without ever seeing what
+this tag published.  And TestPyPI is not a mirror -- its marko stops at
+2.0.3 -- so the real index has to be reachable for the dependencies."""
+    step = workflow('release.yml')['jobs']['verify']['steps'][-1]['run']
+    assert '--index-url https://test.pypi.org/simple/' in step
+    assert '--extra-index-url https://pypi.org/simple/' in step
+    assert '"jimbeamer==$version"' in step
+    assert 'version="${GITHUB_REF_NAME#v}"' in step
+
+
+@in_checkout
+def test_only_the_publishing_jobs_can_mint_a_token():
+    """id-token: write is what proves to PyPI who is calling.  The job
+that runs pip against an external index is not one of the two that should
+be able to."""
+    jobs = workflow('release.yml')['jobs']
+    for name in ('build', 'verify'):
+        assert 'id-token' not in str(jobs[name].get('permissions', ''))
+    for name in ('testpypi', 'pypi'):
+        assert jobs[name]['permissions'] == {'id-token': 'write'}
 
 
 @in_checkout

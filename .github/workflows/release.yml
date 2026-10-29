@@ -91,9 +91,66 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
           skip-existing: true
 
+  # The rehearsal is only a rehearsal if something inspects it.  This is
+  # the half that does not need a human: install what was just published,
+  # from the index it was published to, and convert a deck with it.  A
+  # README that renders badly still needs the eyes the 'pypi' environment
+  # waits for, but a package that cannot be installed at all fails here --
+  # before the filename on PyPI is spent.
+  #
+  # Deliberately not in the job above: that one holds the OIDC token, and
+  # it has no business also running pip against an external index.
+  verify:
+    name: install it from TestPyPI
+    needs: testpypi
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install the version this tag published, and use it
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          python -m venv /tmp/rehearsal
+
+          # TestPyPI does not serve a new file the instant twine returns,
+          # and the index is the thing being tested, so this waits rather
+          # than failing on the first miss.  Pinned to the exact version:
+          # unpinned, pip could satisfy it from an older copy left by an
+          # earlier rehearsal and prove nothing.
+          #
+          # --extra-index-url because TestPyPI is not a mirror: its marko
+          # stops at 2.0.3 and this needs 2.2.3.
+          installed=
+          for attempt in 1 2 3 4 5 6 7 8; do
+            if /tmp/rehearsal/bin/pip install \
+                 --index-url https://test.pypi.org/simple/ \
+                 --extra-index-url https://pypi.org/simple/ \
+                 "jimbeamer==$version"; then
+              installed=yes
+              break
+            fi
+            echo "not on TestPyPI yet (attempt $attempt); waiting"
+            sleep 15
+          done
+          if [ -z "$installed" ]; then
+            echo "jimbeamer==$version never became installable from TestPyPI"
+            exit 1
+          fi
+
+          cd /tmp
+          /tmp/rehearsal/bin/jimbeamer --version
+          printf -- '---\ntitle: T\n---\n\n# S\n\n* a bullet\n' > deck.md
+          # the conversion fills the Beamer template, so this fails too if
+          # the package data did not travel
+          /tmp/rehearsal/bin/jimbeamer deck.md -o deck.tex
+          grep -q 'begin{frame}{S}' deck.tex
+
   pypi:
     name: publish to PyPI
-    needs: testpypi
+    needs: verify
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

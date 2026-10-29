@@ -274,7 +274,10 @@ the way `$titlepage`, `$sectionpages` and `$toc` are.
   `docs/_config.yml` is never read -- so the theme, the title and the
   `baseurl` all silently do nothing.
 - **A release is a tag.** Push `v0.1.0` and `release.yml` builds it,
-  rehearses on TestPyPI and uploads to PyPI, with no token stored anywhere
+  publishes to TestPyPI, installs it back from there and converts a deck
+  with it, waits for the `pypi` environment's reviewer, and only then
+  uploads to PyPI. Uploading to both in one run would prove nothing
+  without those two steps in between. No token is stored anywhere
   — both uploads are Trusted Publishing, which needs a publisher configured
   on each side naming this repository, `release.yml` and the environment.
   The tag and `jimbeamer/_version.py` must agree or the build stops before
