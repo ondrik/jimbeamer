@@ -55,7 +55,7 @@ The guiding principle is **LaTeX passthrough**: whatever the Markdown parser
 does not recognise is assumed to be LaTeX and emitted untouched. That is why
 a slide can always fall back to raw LaTeX, why `\begin{align}` and `@theorem`
 both work without the tool knowing either name, and why you can write
-`$pc_1 \land pc_2$` in the middle of a bullet and get exactly that back.
+`$p \land \lnot q$` in the middle of a bullet and get exactly that back.
 
 </div>
 
@@ -81,18 +81,19 @@ $ jimbeamer --pdf deck.md           # convert, and build the PDF
 
 ```markdown
 ---
-title: 'Symbolic Execution'
+title: 'How to Give a Talk'
+subtitle: 'And Other Unsolved Problems'
 author: 'Jane Doe'
 theme: Madrid
 ---
 
-# What it does
+# The rules
 
-* executes a program on **symbolic** inputs
-* builds a path condition $pc_1 \land pc_2$
+* keep every slide to **one** idea
+* and every idea to $n \leq 3$ bullets
 
-@theorem[Pumping lemma]
-For every *regular* language $L$ there is an $n$.
+@theorem[Murphy's law]
+For every demo of length $t$, the *interesting* failure happens at $t+1$.
 @end
 ```
 

@@ -14,38 +14,38 @@ The guiding principle is **LaTeX passthrough**: whatever the Markdown parser
 does not recognize is assumed to be LaTeX and emitted untouched. That is why a
 slide can always fall back to raw LaTeX, why `\begin{align}` and `@theorem`
 both work without the tool knowing either name, and why you can write
-`$pc_1 \land pc_2$` in the middle of a bullet and get exactly that back.
+`$p \land \lnot q$` in the middle of a bullet and get exactly that back.
 
 ```markdown
 ---
-title: 'Symbolic Execution'
-subtitle: 'SAV --- Static Analysis and Verification'
+title: 'How to Give a Talk'
+subtitle: 'And Other Unsolved Problems'
 author: 'Jane Doe'
 toc: true
 theme: Madrid
 ---
 
-# What it does
+# The rules
 
-* executes a program on **symbolic** inputs
-* builds a path condition $pc_1 \land pc_2$
+* keep every slide to **one** idea
+* and every idea to $n \leq 3$ bullets
 
-@theorem[Pumping lemma]
-For every *regular* language $L$ there is an $n$.
+@theorem[Murphy's law]
+For every demo of length $t$, the *interesting* failure happens at $t+1$.
 @end
 ```
 
 becomes a title page, a table of contents, and
 
 ```latex
-\begin{frame}{What it does}
+\begin{frame}{The rules}
 \begin{itemize}
 \tightlist
-\item executes a program on \textbf{symbolic} inputs
-\item builds a path condition $pc_1 \land pc_2$
+\item keep every slide to \textbf{one} idea
+\item and every idea to $n \leq 3$ bullets
 \end{itemize}
-\begin{theorem}[Pumping lemma]
-For every \emph{regular} language $L$ there is an $n$.
+\begin{theorem}[Murphy's law]
+For every demo of length $t$, the \emph{interesting} failure happens at $t+1$.
 \end{theorem}
 \end{frame}
 ```
@@ -174,8 +174,8 @@ recognized at all, and every key silently becomes slide text.
 
 ```yaml
 ---
-title:    'Symbolic Execution'
-subtitle: 'SAV --- Static Analysis and Verification'
+title:    'How to Give a Talk'
+subtitle: 'And Other Unsolved Problems'
 author:   'Jane Doe'
 institute: 'Example University'
 date:     '4 November 2025'
@@ -208,16 +208,16 @@ A few things worth knowing about that table:
 
 * **The values that become prose are parsed as Markdown** — `title`,
   `subtitle`, `author`, `institute`, `date`, the four short forms and
-  `toc-title`. So `title: '**Lecture 7**'` is bold and `subtitle: 'SAV $x_1$'`
+  `toc-title`. So `title: '**Lecture 7**'` is bold and `subtitle: 'Part $x_1$'`
   keeps its maths, the same as in a heading. Everything else — a theme, a
   colour, `header-includes` — reaches the template exactly as YAML read it.
   LaTeX goes on working in all of them, since passthrough is what happens to
-  anything Markdown does not claim: `title: 'Lecture 7\\Symbolic Execution'`
+  anything Markdown does not claim: `title: 'Lecture 7\\The Rules'`
   still breaks the line (single-quote it, or YAML eats the backslashes). A
   value that is *block*-shaped is left alone rather than mangled, so
   `title: '1. Introduction'` is a numbered title and not a list, and so is a
   value containing a **backslash**, which is taken to be LaTeX: that is what
-  keeps `title: 'Lecture 7\\[2ex]Symbolic Execution'` a line break rather
+  keeps `title: 'Lecture 7\\[2ex]The Rules'` a line break rather
   than a lost backslash. Use LaTeX for emphasis in such a value. They are not
   escaped either, so a literal `%` in a title comments out the rest of its
   line — write `\%`. An underscore inside a word is safe, since CommonMark
@@ -381,7 +381,7 @@ and write the frame yourself, as the first thing in the body:
 \begin{center}
   \includegraphics[width=0.3\textwidth]{logo.png}\par
   \vspace{1em}
-  {\Large Symbolic Execution}\par
+  {\Large How to Give a Talk}\par
   {\small Jane Doe}
 \end{center}
 ````
