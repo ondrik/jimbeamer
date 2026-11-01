@@ -1424,7 +1424,7 @@ handed back as the string it was, which is what every value used to be.
     if '\\' in text:
         # A backslash says this value is LaTeX, and LaTeX is what passthrough
         # hands over untouched.  Parsing it would cost a deck its line breaks:
-        # marko reads the '\\\\' of 'Lecture 7\\\\Symbolic Execution' as one
+        # marko reads the '\\\\' of 'Lecture 7\\\\The Rules' as one
         # escaped backslash and renders a single one, which is not a break.
         return text
 

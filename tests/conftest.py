@@ -76,11 +76,11 @@ header-includes: |
 * \hlbl{cons}: problematic coverage of `corner_cases`
 
 # Maths
-* a symbolic state $\mathit{st} = (\mathit{line}, \mathit{store}, \mathit{pc})$
-* two terminal nodes have distinct $pc_1 \land pc_2$
-* $\mathit{store} : \mathit{Mem} \rightharpoonup \mathit{Sym}$ is partial
-* all values of the input: $2^{80}$, or \(2^{80}\) written LaTeX's way
-* $P($`counter == 10`$) = 0.5$ for a uniform distribution
+* a talk is a pair $\mathit{t} = (\mathit{slides}, \mathit{minutes})$
+* no two slots overlap: $s_1 \land s_2$ is never true
+* $\mathit{notes} : \mathit{Slide} \rightharpoonup \mathit{Text}$ is partial
+* every subset of ten slides: $2^{10}$, or \(2^{10}\) written LaTeX's way
+* $P($`overrun == true`$) = 0.5$ for a uniform distribution
 
 # A listing
 ```C

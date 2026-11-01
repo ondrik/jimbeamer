@@ -310,7 +310,7 @@ of its own, opened by `===` and closed by `---`:
 
 ```markdown
 ===
-title: Why the path condition only ever grows
+title: Why the schedule only ever slips
 label: growth
 itemsep: 1.2em
 options: [t]
@@ -425,7 +425,7 @@ another, and the build dies somewhere far from the cause.
 `{.part}` do the same one level down or up:
 
 ```markdown
-# Part II: Symbolic execution {.section}   ->  \section{Part II: ...}
+# Part II: Delivery {.section}             ->  \section{Part II: ...}
 ```
 
 The separator slide itself is not emitted next to it — the template hooks one
@@ -452,7 +452,7 @@ is the same thing written in the deck instead:
 @preamble
 \usepackage{tikz}
 \usetikzlibrary{automata}
-\newcommand{\KLEE}{KLEE\xspace}
+\newcommand{\eg}{e.g.\xspace}
 @end preamble
 ```
 
@@ -536,7 +536,7 @@ so only the overlay survives and the text goes on the lines below:
 
 ```markdown
 @note
-remember the **KLEE** paper
+remember to thank the **organisers**
 @end note
 ```
 
@@ -634,7 +634,7 @@ LaTeX allows four; beamer has templates for three.)
 ### Images
 
 ```markdown
-![KLEE's architecture](klee.png){width=0.8 clip}
+![The **pipeline**, end to end](pipeline.png){width=0.8 clip}
 ```
 
 `width` and `height` are measured against the slide when they are bare
@@ -733,7 +733,7 @@ a list loose:
 
 ```markdown
 * users try **input vectors**
-% remember to mention the KLEE paper
+% remember to mention the handout
 * pros: no false positives
 ```
 
@@ -762,7 +762,7 @@ verbatim:
 
 ```markdown
 \begin{tabularx}{\textwidth}{lX}
-  KLEE & a symbolic executor \\
+  pandoc & the obvious alternative \\
 \end{tabularx}
 ```
 
@@ -968,12 +968,15 @@ is content, not part of the converter. What stands in for it is `EXAMPLE` in
 several tests assert invariants over rather than checking fixed strings. Add
 to it when you add a construct, and those tests come along.
 
-Three other documents, each with a job the others do not do:
+Two other documents, each with a job the other does not do:
 
-* [`CLAUDE.md`](https://github.com/ondrik/jimbeamer/blob/master/CLAUDE.md) — what the tool does, how it is built, and why.
+* [`CLAUDE.md`](https://github.com/ondrik/jimbeamer/blob/master/CLAUDE.md) — what the tool does, how it is built, and why, with
+  what was decided against and what lives outside the repository.
 * [`TODO.md`](https://github.com/ondrik/jimbeamer/blob/master/TODO.md) — what is missing, wrong, or undecided.
-* [`HANDOFF.md`](https://github.com/ondrik/jimbeamer/blob/master/HANDOFF.md) — where things stand, and what lives outside the
-  repository.
+
+Defects with a reproduction of their own are
+[issues](https://github.com/ondrik/jimbeamer/issues) rather than list
+entries, so that the discussion lives beside the case that shows it.
 
 `git log` is the fine-grained record: the commit messages explain why each
 thing is the way it is, and several say what was deliberately left undone.

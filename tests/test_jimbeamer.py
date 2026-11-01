@@ -169,14 +169,14 @@ def test_an_unclosed_preamble_at_the_end_is_reported(jimbeamer, opts, capsys):
 def test_frontmatter_is_parsed(jimbeamer):
     meta, body = jimbeamer.split_frontmatter(doc("""
         ---
-        title: "Symbolic Execution"
+        title: "How to Give a Talk"
         aspectratio: 169
         colorlinks: true
         ---
 
         # Manual Testing
     """))
-    assert meta == {'title': 'Symbolic Execution',
+    assert meta == {'title': 'How to Give a Talk',
                     'aspectratio': 169,
                     'colorlinks': True}
     assert '# Manual Testing' in body
@@ -1158,8 +1158,8 @@ def test_image_attributes_do_not_leak_as_text(render):
 
 def test_image_title_is_dropped(render):
     """LaTeX has nowhere to put it; a caption comes from the alt text."""
-    body = render('# S\n\n![](fig.png "KLEE results"){width=1.0}\n')
-    assert 'KLEE results' not in body
+    body = render('# S\n\n![](fig.png "Pipeline results"){width=1.0}\n')
+    assert 'Pipeline results' not in body
     assert '\\includegraphics[width=1.0\\textwidth]{fig.png}' in body
 
 
@@ -1168,10 +1168,10 @@ def test_image_title_is_dropped(render):
 ###########################################
 
 def test_image_alone_with_alt_text_is_a_captioned_figure(render):
-    body = render('# S\n\n![KLEE results](fig.png){width=0.8}\n')
+    body = render('# S\n\n![Pipeline results](fig.png){width=0.8}\n')
     assert '\\begin{figure}' in body
     assert '\\centering' in body
-    assert '\\caption{KLEE results}' in body
+    assert '\\caption{Pipeline results}' in body
     assert '\\end{figure}' in body
 
 
@@ -1205,7 +1205,7 @@ def test_two_images_in_a_paragraph_are_not_a_figure(render):
 ###########################################
 
 @pytest.mark.parametrize('source', [
-    pytest.param('$pc_1 \\land pc_2$', id='underscores'),
+    pytest.param('$s_1 \\land s_2$', id='underscores'),
     pytest.param('$\\mathit{st}_{i}$', id='subscript-braces'),
     pytest.param('$2^{80}$', id='superscript'),
     pytest.param('$a_1 + b_2 = c_3$', id='several-underscores'),
@@ -1226,10 +1226,10 @@ def test_math_several_spans_on_one_line(render):
 
 
 def test_math_around_inline_code(render):
-    """The deck writes '$P($`counter == 10`$) = ...$'."""
-    body = render('# S\n\n$P($`counter == 10`$) = 0.5$\n')
+    """The deck writes '$P($`overrun == true`$) = ...$'."""
+    body = render('# S\n\n$P($`overrun == true`$) = 0.5$\n')
     assert '$P($' in body
-    assert '\\texttt{counter == 10}' in body
+    assert '\\texttt{overrun == true}' in body
     assert '$) = 0.5$' in body
 
 
@@ -2155,7 +2155,7 @@ def test_slide_metadata_itemsep_does_not_leak_to_the_next_slide(render):
 @pytest.mark.parametrize('value, expected', [
     pytest.param('**Lecture 7**', '\\textbf{Lecture 7}', id='strong'),
     pytest.param('*Lecture* 7', '\\emph{Lecture} 7', id='emphasis'),
-    pytest.param('Symbolic $x_1$', 'Symbolic $x_1$', id='maths'),
+    pytest.param('Part $x_1$', 'Part $x_1$', id='maths'),
     pytest.param('\\textbf{raw}', '\\textbf{raw}', id='raw-latex'),
     pytest.param('==hot==', '\\hlbl{hot}', id='highlight'),
     # CommonMark forbids intraword '_' emphasis, so a name survives whole;
@@ -2350,7 +2350,7 @@ breaklines: long lines ran off the edge of the slide and were clipped.
 
 def test_template_loads_xspace(template):
     """A macro in header-includes that wants the space after it kept
-(\\newcommand{\\KLEE}{KLEE\\xspace}) needs the package loaded here, since
+(\\newcommand{\\eg}{e.g.\\xspace}) needs the package loaded here, since
 header-includes comes last and the deck cannot get in before it."""
     assert '\\usepackage{xspace}' in without_comments(template)
 
@@ -2574,7 +2574,7 @@ def test_titlepage_can_be_forced_without_a_title(jimbeamer):
 
 def test_subtitle_reaches_the_document(convert):
     """A lecture deck puts the lesson in the title and the course here."""
-    result = convert('---\ntitle: "Symbolic Execution"\n'
+    result = convert('---\ntitle: "How to Give a Talk"\n'
                      'subtitle: "SAV --- Static Analysis"\n---\n\n# S\nx\n')
     assert '\\subtitle{SAV --- Static Analysis}' in result
 

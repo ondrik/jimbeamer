@@ -29,7 +29,7 @@ VIM_DIR = os.path.join(os.path.dirname(HERE), 'vim')
 # these assertions are about colour, not about conversion.
 SAMPLE = """\
 ---
-title: 'Symbolic Execution'
+title: 'How to Give a Talk'
 ---
 
 # A heading {.fragile #intro}
@@ -56,7 +56,7 @@ int main(void) { return 0; }
 @end
 
 \\begin{tabularx}{\\textwidth}{lX}
-  KLEE & a symbolic executor \\\\
+  pandoc & the obvious alternative \\\\
 \\end{tabularx}
 
 ---
@@ -177,7 +177,7 @@ def example(tmp_path_factory):
 
 @vim_needed
 @pytest.mark.parametrize('needle, group', [
-    pytest.param("title: 'Symbolic Execution'", 'jimbeamerMetaKey', id='meta'),
+    pytest.param("title: 'How to Give a Talk'", 'jimbeamerMetaKey', id='meta'),
     pytest.param('# A heading', 'jimbeamerHeading', id='heading'),
     pytest.param('{.fragile #intro}', 'jimbeamerClass', id='class'),
     pytest.param('{.fragile #intro}', 'jimbeamerLabel', id='label'),
@@ -193,7 +193,7 @@ def example(tmp_path_factory):
     pytest.param('% a preamble comment', 'jimbeamerComment', id='preamble-%'),
     pytest.param('@end\n', 'jimbeamerDirectiveEnd', id='directive-end'),
     pytest.param('int main(void)', 'jimbeamerCodeFence', id='code-fence'),
-    pytest.param('KLEE & a symbolic', 'jimbeamerLatexEnv', id='latex-env'),
+    pytest.param('pandoc & the obvious', 'jimbeamerLatexEnv', id='latex-env'),
     pytest.param('$x_1 \\land y_2$', 'jimbeamerMath', id='maths'),
     pytest.param('\\[\\bigvee_i', 'jimbeamerMathBracket', id='display-maths'),
     pytest.param('\\(x_3\\)', 'jimbeamerMathParen', id='latex-inline-maths'),

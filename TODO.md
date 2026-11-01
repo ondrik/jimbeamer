@@ -8,8 +8,15 @@ errors. The ordering within each group is roughly by how much it buys.
 
 ## Defects
 
-Everything from here to the `short-title` entry was found by auditing the
-documentation against the source, and none of it was known before.
+Everything here was found by auditing the documentation against the source,
+and none of it was known before. Defects found while *using* the converter
+are [issues](https://github.com/ondrik/jimbeamer/issues) instead, where the
+reproduction and the discussion sit together — open at the time of writing:
+a sibling `@column` that does not close directives still open inside the
+previous one (#2), a literal `[` after `\item` or `\\` eaten as an optional
+argument (#3), and `\[` being read as display maths so a bracket cannot be
+escaped (#4). Two lists is one more than there should be; the division that
+keeps them apart is that these were found by reading and those by running.
 
 **A `---` break does not close a directive.** It is swallowed into the
 environment and set as `\medskip\hrule\medskip`, the untitled frame it should
@@ -19,12 +26,6 @@ have started never appears, and what follows lands inside the environment too.
 `arguments` and then does not use it on that branch, so `@note remember this`
 loses "remember this" and `@alert[opt]` loses the `[opt]`; only the overlay
 survives. Silent.
-
-**`@end name` closes whatever is open and then misreports it.** The name only
-decides whether the line is consumed, never whether the directive closes, so
-`@end lemma` closes an open `@theorem` exactly as a bare `@end` would. The
-orphaned line then reaches the top level and is reported as `'@end lemma' with
-nothing open` -- which is the opposite of what happened. Exit status stays 0.
 
 **`-V slides=...` replaces the entire body of the deck**, and
 `-V classoptions=...` replaces the computed `\documentclass` options. The four
@@ -147,8 +148,15 @@ work up — the `@` directive syntax and the metadata keys included, and with
 them the hand-made title slide (`titlepage: false` plus a frame written in the
 body), which worked and was written down nowhere.
 
-What is left is keeping the two in step. `CLAUDE.md` is the older document and
-is wrong in a few places the README had to get right: the `@end` that names
-something is *not* verified, a leading `---` is metadata only when a closing
-fence follows, and a code span is not inviolable — `$...$` and `\macro` are
-claimed ahead of it. Those corrections belong in `CLAUDE.md` too.
+What is left is keeping the two in step, and the corrections this entry used
+to list have been made: `CLAUDE.md` now says that a leading `---` is metadata
+only when a closing fence follows, and that a code span is not inviolable
+since `$...$` and `\macro` are claimed ahead of it. The third correction it
+asked for has been overtaken — an `@end` that names something *is* verified
+now, and the name it carries is checked against what is actually open.
+
+`HANDOFF.md` is gone. What it recorded that the others did not — what was
+decided against, what lives outside the repository, and how to recover the
+deck from history — is in `CLAUDE.md`; the rest of it was a snapshot of a
+state that no longer holds, which is the failure mode of a document that
+describes where things stand.

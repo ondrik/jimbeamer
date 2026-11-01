@@ -40,7 +40,6 @@ and is nobody's dependency to declare.
 | `pytest.ini` | testpaths, and deprecation warnings promoted to errors |
 | `README.md` | how to install it, how to use it, and the input format in full |
 | `TODO.md` | what is missing, wrong, or undecided |
-| `HANDOFF.md` | where things stand, and what lives outside the repository |
 | `LICENSE` | MIT |
 | `vim/` | syntax file and filetype detection for the input format |
 
@@ -255,11 +254,29 @@ are four kinds of check worth keeping:
   on blue. Several bugs here were invisible until someone looked at the
   output.
 
+**Check that a fix did not corrupt what it fixed.** Escaping a URL can make
+a document compile while breaking the link; the check for that pulled the
+`/URI` back out of the built PDF and compared it with the source, by hand, at
+`c6b68bc`. The suite only ever sees the `.tex`, and the compile test would
+pass a link corrupted into something that still typesets. "It compiles" is
+weaker evidence than it looks.
+
 ## Comparing against pandoc
 
-The reference is the pandoc build of the same lecture. `HANDOFF.md` says
-where that, and the deck's own source, live — neither is in this repository,
-and the comparison therefore cannot be rerun from a fresh clone.
+The reference is the pandoc build of the same lecture. Neither it nor the
+deck's own source is in this repository — both sit in the author's teaching
+repository, wherever that is checked out, so no path to them belongs here.
+The comparison therefore cannot be rerun from a fresh clone.
+
+The deck itself can be recovered from history when it is wanted:
+
+    git show 2d20d16:simplified.md    # as first committed, before the @ syntax
+    git show fad2063:simplified.md    # converted to @columns/@column
+    git show 3c59e82:simplified.md    # self-contained, the last version here
+
+That last one is what a parser change should be regressed against: render it
+before and after and the output has to be byte-identical, which has caught
+more than one change that the suite was happy with.
 
 To compare fairly: copy `macros.tex`, `stylesheet.tex`, `filter.py3` and
 `klee.png` to a scratch directory alongside both sources, strip `\pausex` from
@@ -277,6 +294,28 @@ Note the original pandoc source uses `::: {.column}` fenced divs and is **no
 longer valid input** here — run it through and the fences come out as literal
 text, `%` and all. The two syntaxes diverged deliberately; commit `3746e12`
 has the argument.
+
+## Already decided against
+
+Recorded so they are not proposed again. None is an oversight.
+
+- **`%%` as a second comment syntax**, for notes that never reach the `.tex`.
+  Proposed and declined — `%` on a line of its own already does exactly that.
+- **A standalone document about section separator slides.** Started, then
+  superseded: `{.section}` made the instructions unnecessary, and the syntax
+  is documented in `README.md` with the rest of the input format.
+- **Pandoc's `beamer-template.tex` kept in the repository.** It was there at
+  the start, deliberately never committed, and has since been deleted.
+- **Fenced divs (`::: {.column}`) for environments.** Rejected in favour of
+  the `@` directives after discussion; commit `3746e12` has the argument in
+  full, and the design that survives it is above — the syntax is what says
+  whether the contents are Markdown or LaTeX, so no name-to-environment table
+  is needed. The original pandoc source stopped being valid input as a
+  result, which was the accepted cost (`README.md`, "Coming from pandoc").
+- **A second deck, converted from prosper**, is what prompted the section
+  separator slides. It lives outside this repository, has never been run
+  through the converter, and may well use constructs it has not met.
+  Converting and compiling it is the obvious next real test.
 
 ## Remaining work
 
