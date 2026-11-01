@@ -104,6 +104,34 @@ hyphenated. One line of `@preamble` fixes both:
 Add `\usepackage[<language>]{babel}` as well for that language's hyphenation
 patterns, if your TeX has the language pack.
 
+**babel and TikZ.** Some languages — Czech and Slovak among them — make `-`
+an active character, and TikZ then cannot read a negative length:
+`xshift=-6mm` or `[y=-13mm]` stops the build with `Missing number, treated
+as zero`. TikZ ships a cure for exactly this, `\usetikzlibrary{babel}`, and
+it does not work in a deck: beamer reads a frame's body into tokens before
+the library can change what `-` means, so the same picture that it fixes in
+an `article` still fails in a frame. Disarm the shorthand once the document
+has begun instead:
+
+```markdown
+@preamble
+\usepackage[czech]{babel}
+\usepackage{tikz}
+\AtBeginDocument{\shorthandoff{-}}
+@end
+```
+
+The `\AtBeginDocument` is the part that matters. babel arms its shorthands
+at `\begin{document}`, which is after everything `@preamble` writes, so a
+bare `\shorthandoff{-}` in the preamble is armed again behind your back.
+The cost is that the language's own `-` shorthand is off for the whole deck;
+a hyphen still prints, it just stops being the discretionary the shorthand
+made it.
+
+Per slide instead of per deck, `\usetikzlibrary{babel}` does work on a frame
+marked `{.fragile}`, since a fragile frame is written out and read back
+rather than tokenised in place.
+
 
 ## Using it
 

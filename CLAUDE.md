@@ -189,6 +189,17 @@ a bare title as Markdown.
 - **`upquote` and `breaklines`** are not optional: without them `'B'` in a C
   listing becomes typographic quotes and long lines are clipped at the slide
   edge. There is a test asserting both are still in the template.
+- **babel arms its shorthands at `\begin{document}`, and beamer tokenises a
+  frame's body.** Together they defeat both obvious cures for a language that
+  makes `-` active (Czech, Slovak): `\shorthandoff{-}` in the preamble is
+  armed again afterwards, and `\usetikzlibrary{babel}` changes what `-` means
+  too late, having been written for documents whose body is read once. It
+  fixes a picture in an `article` and the identical picture still fails in a
+  frame. `\AtBeginDocument{\shorthandoff{-}}` works, as does
+  `\usetikzlibrary{babel}` on a `{.fragile}` frame. Measured on
+  `xshift=-6mm`: two `Missing number` errors, and latexmk fails the build,
+  though TikZ recovers and the page is pixel-identical either way -- so the
+  symptom is a failed build rather than a wrong slide.
 - **Do not redirect pdflatex's stdout to `<job>.out`** — that is hyperref's
   bookmark file, and clobbering it produces a baffling `Missing { inserted`.
 - `grep -c` counts *lines*, not occurrences (this produced a phantom `\pausex`
