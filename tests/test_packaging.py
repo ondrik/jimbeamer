@@ -305,6 +305,23 @@ workflow so that the build job never carries it."""
         workflows.get('permissions'))
 
 
+@in_checkout
+def test_the_lowest_python_runs_on_an_image_that_has_it():
+    """requires-python says 3.9, and the matrix is what substantiates it.
+But 'ubuntu-latest' moves: it became 26.04, for which actions/python-versions
+publishes no 3.9 at all, and the leg stopped running -- loudly, but it could
+as easily have been dropped from the matrix and the claim left standing.
+So the floor version is pinned to an image that still has it."""
+    floor = project()['project']['requires-python'].lstrip('>=')
+    matrix = workflow('test.yml')['jobs']['test']['strategy']['matrix']
+    assert floor not in matrix['python'], (
+        '%s must not ride ubuntu-latest, which moves' % floor)
+    pinned = [entry for entry in matrix['include']
+              if entry['python'] == floor]
+    assert len(pinned) == 1
+    assert pinned[0]['runner'] != 'ubuntu-latest'
+
+
 ###########################################
 # the sdist
 ###########################################

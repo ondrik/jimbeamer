@@ -18,11 +18,23 @@ jobs:
   # comes from marko's own metadata and was never run until this existed.
   test:
     name: python ${{ matrix.python }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        python: ['3.10', '3.11', '3.12', '3.13']
+        runner: [ubuntu-latest]
+        # ubuntu-latest became 26.04, and actions/python-versions has no
+        # 3.9 build for it -- "The version '3.9' with architecture 'x64'
+        # was not found for Ubuntu 26.04".  24.04 is the newest image that
+        # still has one.  Dropping the leg instead would leave
+        # requires-python = ">=3.9" asserted and never run, which is the
+        # reason this matrix exists at all; 3.9 itself is supported until
+        # October 2025 upstream, so the floor is a promise to users with an
+        # old interpreter, not a promise about the runner.
+        include:
+          - python: '3.9'
+            runner: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v5
