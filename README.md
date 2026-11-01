@@ -648,7 +648,10 @@ several nest with the first outermost: `[x]{.hlbl .hlgr}` is
 `\hlbl{\hlgr{x}}`, which means the *last* class is the colour you see. The
 contents are Markdown, and may run across a line break, since prose is
 wrapped — but the `]` and the `{` stay together, so `[text](url) {braces}` is
-not one of these. Nothing checks that the macro exists; a typo surfaces
+not one of these. A literal bracket inside one is `\lbrack` and `\rbrack`:
+`[\lbrack Clarke, Emerson 81\rbrack]{.hlvio}` gives the citation in brackets,
+where `\[` is LaTeX's display maths rather than Markdown's escape, and `{[}`
+stops the span being a span at all. Nothing checks that the macro exists; a typo surfaces
 as an undefined control sequence from LaTeX, and `--pdf` will not show you
 that error. The template predefines `\hlbl` (`blue`), `\hlgr`
 (`olive!50!green`), `\hlrd` (`red`), `\hlorg` (`Orange`), `\hlgrey`
