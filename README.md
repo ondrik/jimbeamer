@@ -93,11 +93,12 @@ template does not load that for you either.
 The template loads no `fontenc`, no `inputenc` and no `babel`, and `lang:` is
 not a key it reads. A deck with accented prose — `naïve`, `café`, `Köln` — compiles cleanly and looks right, but the glyphs are OT1 composites:
 the PDF cannot be searched or copied out of, and an accented word is never
-hyphenated. One line of `header-includes` fixes both:
+hyphenated. One line of `@preamble` fixes both:
 
-```yaml
-header-includes: |
-  \usepackage[T1]{fontenc}
+```markdown
+@preamble
+\usepackage[T1]{fontenc}
+@end
 ```
 
 Add `\usepackage[<language>]{babel}` as well for that language's hyphenation
@@ -197,7 +198,7 @@ toc:      true
 | `fontfamily` | `lmodern` | emitted as `\usepackage{...}`, so it must name a package |
 | `fontsize`, `aspectratio`, `classoption` | — | `\documentclass` options, after the unconditional `dvipsnames`; e.g. `fontsize: 10pt`, `aspectratio: 169` |
 | `handout` | `false` | empty `\xpause`, and with it `\pausex`, so every frame is one page |
-| `header-includes` | empty | LaTeX injected last in the preamble, so it overrides everything above |
+| `header-includes` | empty | LaTeX injected last in the preamble, so it overrides everything above; a `@preamble` block in the deck is usually the easier place to write it |
 | `colorlinks` | `true` | colour the link text |
 | `urlcolor` | `blue` | colour for `\href` and `\url` |
 | `linkcolor` | whatever `urlcolor` is | colour for internal `[text](#label)` links |
@@ -404,7 +405,7 @@ onto every sectioning level with `\AtBeginSection`, which is what lets
 `section-titles: false` switch all of them off at once, and what gives one to
 a section made by a heading above the slide level too. The divider carries the
 section name alone, in the theme's own colours and fonts. To change it,
-redefine `\setbeamertemplate{section page}` from `header-includes`.
+redefine `\setbeamertemplate{section page}` in a `@preamble` block.
 
 Give a `{.section}` heading content and that content becomes the slide right
 after the divider, so nothing written under it is lost.
@@ -504,8 +505,8 @@ remember the **KLEE** paper
 ```
 
 Nothing of a `\note` reaches the PDF unless the deck asks for it: put
-`\setbeameroption{show notes}` (or `show notes on second screen`) in
-`header-includes`.
+`\setbeameroption{show notes}` (or `show notes on second screen`) in a
+`@preamble` block.
 
 ### Code
 
@@ -530,10 +531,10 @@ inside the listing typesets as maths. A language fence never gets an
 escapechar, since a C snippet is free to contain an `@`.
 
 Every listing is governed by the `\lstset` in the template, which is emitted
-before `header-includes` so that an `\lstset` of your own wins. Line numbering
-is off; `header-includes: \lstset{numbers=left}` turns it on — the options
-need that `\lstset` around them, or they land in the preamble as loose text
-and the build stops with `Missing \begin{document}`.
+before your own preamble so that an `\lstset` of yours wins. Line numbering
+is off; `\lstset{numbers=left}` in a `@preamble` block turns it on — the
+options need that `\lstset` around them, or they land in the preamble as
+loose text and the build stops with `Missing \begin{document}`.
 
 ### Ordered lists
 
@@ -614,7 +615,7 @@ The path is passed through untouched, so LaTeX resolves it relative to the
 generated `.tex`, not to the Markdown — and `--pdf` runs the engine in the
 `.tex`'s own directory. Keep the two together, or, when `-o` writes elsewhere
 (`jimbeamer deck/s.md -o build/s.tex`), point LaTeX back with
-`\graphicspath{{../deck/}}` in `header-includes`. A missing image is one of
+`\graphicspath{{../deck/}}` in a `@preamble` block. A missing image is one of
 the errors `--pdf` does not echo: you get only the name of the log.
 
 ### Text
@@ -728,15 +729,17 @@ verbatim:
 
 and pull the package in yourself, since the template does not:
 
-```yaml
-header-includes: |
-  \usepackage{tabularx}
-  \usepackage{booktabs}
+```markdown
+@preamble
+\usepackage{tabularx}
+\usepackage{booktabs}
+@end
 ```
 
-More than one line needs that `|` block scalar (a YAML list, one `- ` per
-item, works too). Repeating the key does *not* — YAML keeps the last one and
-the rest vanish without a word.
+As many lines as you like, and as many blocks as you like. Through
+`header-includes` the same thing needs a `|` block scalar, and repeating
+that key does *not* work — YAML keeps the last one and the rest vanish
+without a word, which is the argument for writing it in the deck.
 
 
 ## Everything is LaTeX, including your prose
