@@ -1555,7 +1555,7 @@ contents, so no list of environment names has to decide it.
 
     @column 0.3                 @theorem[Pumping lemma]
     * **Markdown** in here      For every **regular** language ...
-    @column 0.7                 @end
+    @column 0.7                 @end theorem
     ...
     @end columns
 
@@ -1593,6 +1593,22 @@ anything still open inside it, the way </ul> does in HTML.
             title = source.parser.parse(text).children
 
         children = []
+        open_directives(source).append(name)
+        try:
+            children = cls.parse_body(source, name)
+        finally:
+            open_directives(source).pop()
+
+        return name, overlay, kind, text, title, children
+
+    @classmethod
+    def parse_body(cls, source, name):
+        """parse_body(Source, str) -> list
+
+The blocks up to whatever closes this directive.  Split out so that the
+name can be popped off the open list however this returns.
+"""
+        children = []
         while not source.exhausted:
             line = source.next_line()
             if line is None:
@@ -1600,9 +1616,21 @@ anything still open inside it, the way </ul> does in HTML.
 
             end = DIRECTIVE_END_RE.match(line)
             if end:
-                if end.group('name') in (None, name):
+                closes = end.group('name')
+                if closes in (None, name):
                     source.consume()        # ours; a bare @end closes here
-                break                       # otherwise an enclosing one's
+                    break
+                if closes in open_directives(source):
+                    break                   # an enclosing one's, so unwind
+                # names something that is not open at all.  Dropped here
+                # rather than left to travel outwards: every directive it
+                # passed through would close on the way, and the report
+                # would land on whichever '@end' came next -- a correct
+                # line blamed for a typo several lines above it.
+                source.consume()
+                children.append(MismatchedDirectiveEnd(
+                    line.strip(), list(open_directives(source))))
+                continue
 
             sibling = DIRECTIVE_RE.match(line)
             if sibling and name in SIBLING_DIRECTIVES \
@@ -1617,7 +1645,37 @@ anything still open inside it, the way </ul> does in HTML.
                 break
             children.append(block)
 
-        return name, overlay, kind, text, title, children
+        return children
+
+
+###########################################
+def open_directives(source):
+    """open_directives(Source) -> list
+
+The names of the directives being parsed, outermost first.  Kept on the
+parser's own context, which is where marko's list parsing keeps its state
+too, so that it starts empty for every document and cannot leak from one
+parse into the next.
+"""
+    if not hasattr(source.context, 'directive_names'):
+        source.context.directive_names = []
+    return source.context.directive_names
+
+
+class MismatchedDirectiveEnd(marko.block.BlockElement):
+    """An '@end name' naming something that is not open.
+
+Never matched: directives build these themselves, having the open names to
+hand.  It renders as nothing, and says so on stderr.
+"""
+
+    priority = 9
+    breaks_paragraph = True
+
+    def __init__(self, text, open_names):
+        self.text = text
+        self.open_names = open_names
+        self.children = []
 
 
 class StrayDirectiveEnd(marko.block.BlockElement):
@@ -2105,6 +2163,15 @@ standing for every level below those named.
 
     def render_stray_directive_end(self, element):
         print("%s: warning: '%s' with nothing open" % (PROG, element.text),
+              file=sys.stderr)
+        return ''
+
+    def render_mismatched_directive_end(self, element):
+        # Naming what *is* open is the useful half: the mistake is almost
+        # always a name typed from memory, and the answer is on the line.
+        print("%s: warning: '%s' closes nothing; open here: %s"
+              % (PROG, element.text,
+                 ', '.join(reversed(element.open_names)) or 'nothing'),
               file=sys.stderr)
         return ''
 

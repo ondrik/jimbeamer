@@ -32,7 +32,7 @@ theme: Madrid
 
 @theorem[Murphy's law]
 For every demo of length $t$, the *interesting* failure happens at $t+1$.
-@end
+@end theorem
 ```
 
 becomes a title page, a table of contents, and
@@ -98,7 +98,7 @@ hyphenated. One line of `@preamble` fixes both:
 ```markdown
 @preamble
 \usepackage[T1]{fontenc}
-@end
+@end preamble
 ```
 
 Add `\usepackage[<language>]{babel}` as well for that language's hyphenation
@@ -118,7 +118,7 @@ has begun instead:
 \usepackage[czech]{babel}
 \usepackage{tikz}
 \AtBeginDocument{\shorthandoff{-}}
-@end
+@end preamble
 ```
 
 The `\AtBeginDocument` is the part that matters. babel arms its shorthands
@@ -453,7 +453,7 @@ is the same thing written in the deck instead:
 \usepackage{tikz}
 \usetikzlibrary{automata}
 \newcommand{\KLEE}{KLEE\xspace}
-@end
+@end preamble
 ```
 
 The contents are LaTeX and nothing else — not Markdown, and not touched on
@@ -500,8 +500,16 @@ same name again for `@column`, so a row of columns needs no `@end` between
 them, and any heading. A `---` break does **not**: it is swallowed into the
 environment and set as a horizontal rule, the untitled frame it should have
 started never appears, and what follows lands inside the environment too.
-Write the `@end` first. `@end name` closes everything still open inside it, as
-`</ul>` does in HTML. A stray `@end` is reported on stderr and dropped.
+Write the `@end` first, and name what it closes. `@end name` closes
+everything still open inside it, as `</ul>` does in HTML — in the example
+below one `@end columns` closes the open column as well.
+
+Naming it is also what gets it checked: a name that is not open anywhere is
+reported on stderr, together with what *is* open, and dropped. It costs only
+itself, so the directives around it still nest as written. A bare `@end`
+closes whatever is innermost and is never reported, since it claims nothing
+to be wrong about. A stray `@end` with nothing open at all is reported
+either way.
 
 ````markdown
 # Two columns
@@ -513,7 +521,7 @@ int main(void) { return 0; }
 ```
 @column 0.55
 * the right-hand side
-@end
+@end columns
 ````
 
 gives `\begin{columns}[T]`, a `\begin{column}{0.45\textwidth}` and a
@@ -529,7 +537,7 @@ so only the overlay survives and the text goes on the lines below:
 ```markdown
 @note
 remember the **KLEE** paper
-@end
+@end note
 ```
 
 Nothing of a `\note` reaches the PDF unless the deck asks for it: put
@@ -764,7 +772,7 @@ and pull the package in yourself, since the template does not:
 @preamble
 \usepackage{tabularx}
 \usepackage{booktabs}
-@end
+@end preamble
 ```
 
 As many lines as you like, and as many blocks as you like. Through

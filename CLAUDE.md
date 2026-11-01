@@ -111,6 +111,17 @@ it only when it is a mapping naming a key in `SLIDE_METADATA_KEYS`. A setext
 heading still wins over all of it, because marko resolves that while parsing
 the paragraph above, before any element of ours is asked.
 
+**A named `@end` is checked; a bare one is not.** `@end name` closes
+anything still open inside it, so the name may be an outer directive and the
+inner ones unwind -- that is the documented behaviour and stays silent. A
+name that is open *nowhere* is the mistake, and it is reported where it is
+written and dropped there, costing only itself. It used to travel outwards
+looking for its name, closing every directive on the way, and the warning
+landed on whichever `@end` came next: a correct line blamed for a typo
+above it. The open names live on the parser's context (`open_directives()`),
+beside where marko keeps its own list state. A bare `@end` names nothing, so
+there is nothing to check and it is never reported.
+
 **`@preamble` is not a directive.** It is taken out of the source in
 `BeamerMarkdown.parse()`, beside `strip_comments()` and for the same reason:
 anything that parses a document gets it, the tests included. Its contents are

@@ -94,7 +94,7 @@ theme: Madrid
 
 @theorem[Murphy's law]
 For every demo of length $t$, the *interesting* failure happens at $t+1$.
-@end
+@end theorem
 ```
 
 becomes a title page and a frame holding an `itemize` and a `theorem`.

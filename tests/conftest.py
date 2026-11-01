@@ -60,7 +60,7 @@ header-includes: |
 @preamble
 % LaTeX for the preamble, written in the deck rather than in YAML
 \newcommand{\jbdemo}[1]{\textit{#1}}
-@end
+@end preamble
 
 # Lists and text
 * users try ==**input vectors**==, trying to break a program
@@ -124,11 +124,11 @@ int power(x, y)
 # Environments
 @theorem[Pumping lemma]
 For every **regular** language $L$ there is a $p \geq 1$ such that \ldots
-@end
+@end theorem
 
 @block Results **so far**
 Nothing broken yet.
-@end
+@end block
 
 # A figure
 ![A **captioned** figure](f.png){width=0.4}

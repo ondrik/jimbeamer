@@ -2208,6 +2208,82 @@ def test_directive_stray_end_is_dropped_with_a_warning(render, capsys):
 
 
 ###########################################
+# Directives: '@end name' has to name something open
+###########################################
+
+def test_directive_end_may_name_what_it_closes(render, capsys):
+    """The spelling the documentation uses everywhere."""
+    body = render('# S\n\n@columns\n@column 0.5\nx\n@end column\n@end columns\n')
+    assert '\\begin{column}{0.5\\textwidth}\nx\n\n\\end{column}' in body
+    assert capsys.readouterr().err == ''
+
+
+def test_directive_bare_end_never_complains(render, capsys):
+    """A bare '@end' closes whatever is innermost, so it cannot be wrong
+about the name -- it gives none.  The check is only for a name."""
+    body = render('# S\n\n@columns\n@column 0.5\nx\n@end\n@end\n')
+    assert '\\end{column}' in body and '\\end{columns}' in body
+    assert capsys.readouterr().err == ''
+
+
+def test_directive_end_may_close_what_is_open_inside_it(render, capsys):
+    """'@end name' closes anything still open inside it, the way </ul>
+does.  That is the documented behaviour and must stay silent -- it is how
+a column is closed by the '@end columns' below it."""
+    body = render('# S\n\n@block A\n@center\nx\n@end block\n')
+    assert '\\begin{center}\nx\n\n\\end{center}\n\\end{block}' in body
+    assert capsys.readouterr().err == ''
+
+
+def test_directive_end_naming_nothing_open_is_reported(render, capsys):
+    """And the message names what *is* open, since the mistake is almost
+always a name typed from memory."""
+    body = render('# S\n\n@block A\nx\n@end center\n')
+    error = capsys.readouterr().err
+    assert "'@end center' closes nothing" in error
+    assert 'open here: block' in error
+    assert '@end center' not in body
+
+
+def test_directive_end_naming_nothing_open_costs_only_itself(render, capsys):
+    """It used to travel outwards looking for its name, closing every
+directive it passed through, and the report landed on whichever '@end'
+came next -- a correct line blamed for a typo above it.  One warning, and
+the nesting survives."""
+    body = render(doc("""
+        # S
+
+        @columns
+        @column 0.5
+        x
+        @end center
+        @end columns
+    """))
+    error = capsys.readouterr().err
+    assert error.count('warning') == 1
+    assert "'@end center'" in error
+    assert 'open here: column, columns' in error
+    # and both environments still close, in the right order
+    assert '\\end{column}\n\\end{columns}' in body
+
+
+def test_directive_end_checks_the_name_at_every_depth(render, capsys):
+    """The open list is a stack, so a name that matches an outer directive
+is an unwind and a name that matches none is a mistake, however deep."""
+    body = render(doc("""
+        # S
+
+        @columns
+        @column 0.5
+        @block B
+        x
+        @end columns
+    """))
+    assert capsys.readouterr().err == ''
+    assert '\\end{block}\n\\end{column}\n\\end{columns}' in body
+
+
+###########################################
 # Directives: what is not a directive
 ###########################################
 
