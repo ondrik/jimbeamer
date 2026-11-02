@@ -110,6 +110,15 @@ it only when it is a mapping naming a key in `SLIDE_METADATA_KEYS`. A setext
 heading still wins over all of it, because marko resolves that while parsing
 the paragraph above, before any element of ours is asked.
 
+**Closing unwinds, whichever way it happens.** `@end name` closes what is
+still open inside it, and so does the next `@column` -- both ask
+`open_directives()` what is open rather than looking only at the directive
+in hand. The sibling path used to compare the *current* directive's name
+with the line's, so it never fired from inside a `@center` and the
+environments interleaved: LaTeX accepted it silently and beamer stacked the
+columns down the middle. A name that is not open closes nothing, which is
+what keeps a stray `@column` from unwinding the slide.
+
 **A named `@end` is checked; a bare one is not.** `@end name` closes
 anything still open inside it, so the name may be an outer directive and the
 inner ones unwind -- that is the documented behaviour and stays silent. A

@@ -1633,9 +1633,17 @@ name can be popped off the open list however this returns.
                 continue
 
             sibling = DIRECTIVE_RE.match(line)
-            if sibling and name in SIBLING_DIRECTIVES \
-                    and sibling.group('name') == name:
-                break                       # closed by the next of its kind
+            if sibling and sibling.group('name') in SIBLING_DIRECTIVES \
+                    and sibling.group('name') in open_directives(source):
+                # The next of its kind closes it, and closes whatever is
+                # still open inside it on the way -- the same unwinding an
+                # '@end name' does.  Asking what is *open* rather than
+                # whether this directive is itself the sibling is what
+                # reaches the inner one: a '@center' inside the first
+                # column has to end before the second column opens, or the
+                # two environments interleave and beamer stacks the
+                # columns instead of setting them side by side.
+                break
 
             if HEADING_LINE_RE.match(line):
                 break                       # closed by the frame boundary

@@ -497,7 +497,9 @@ yourself.
 
 Three things close a directive: `@end` (optionally naming what it closes), the
 same name again for `@column`, so a row of columns needs no `@end` between
-them, and any heading. A `---` break does **not**: it is swallowed into the
+them, and any heading. The second of those unwinds like the first: a
+`@column` closes the previous column *and* whatever is still open inside it,
+so a `@center` in the first column does not have to be ended by hand. A `---` break does **not**: it is swallowed into the
 environment and set as a horizontal rule, the untitled frame it should have
 started never appears, and what follows lands inside the environment too.
 Write the `@end` first, and name what it closes. `@end name` closes

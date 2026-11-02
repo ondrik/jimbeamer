@@ -1553,6 +1553,41 @@ def test_directive_sibling_closes_the_previous_one(render):
     assert body.count('\\end{column}') == 2
 
 
+def test_directive_sibling_closes_what_is_open_inside_the_previous_one(render):
+    """The '@end name' path unwinds what is still open inside what it
+closes; the sibling path did not, so a '@center' in the first column was
+left open when the second began.  The environments interleaved, which
+LaTeX accepts without a word -- and beamer then stacked the two columns
+down the middle of the slide instead of setting them side by side."""
+    body = render(doc("""
+        # S
+
+        @columns
+        @column 0.5
+        @center
+        left
+        @column 0.5
+        @center
+        right
+        @end center
+        @end columns
+    """))
+    assert '\\begin{center}\nleft\n\n\\end{center}\n\\end{column}' in body
+    # the giveaway was a column opening while the previous centre was open
+    assert '\\end{center}\n\\begin{column}' not in body
+    assert body.count('\\begin{column}') == body.count('\\end{column}') == 2
+    assert body.count('\\begin{center}') == body.count('\\end{center}') == 2
+
+
+def test_directive_sibling_only_closes_one_that_is_open(render):
+    """The name has to be open for the next of its kind to close anything.
+A '@column' with none open is an ordinary nested directive, which is what
+it was before any of this and what keeps a stray one from unwinding the
+slide."""
+    body = render('# S\n\n@block B\n@column 0.5\nx\n@end column\n@end block\n')
+    assert '\\begin{block}{B}\n\\begin{column}' in body
+
+
 def test_directive_heading_closes_it(render):
     """No environment may reach past the end of its frame."""
     body = render('# One\n\n@column 0.5\ntext\n\n# Two\n\nmore\n')
