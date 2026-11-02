@@ -219,6 +219,18 @@ a bare title as Markdown.
   `xshift=-6mm`: two `Missing number` errors, and latexmk fails the build,
   though TikZ recovers and the page is pixel-identical either way -- so the
   symptom is a failed build rather than a wrong slide.
+- **A bracket opening an `\item` or following `\\` is an optional argument.**
+  `\item [RFC 5246] says` loses the brackets, the bullet and the first few
+  characters, right-aligned off the slide, and says nothing; `\\` then `[x]`
+  fails with `Missing number, treated as zero` and `Illegal unit of measure`,
+  neither naming the line. Both are braced to `{[}` on the way out, in
+  `render_list_item()` and `render_paragraph()` — the latter because it is
+  the only place that sees what follows a break it wrote.
+- **`\[` is two things.** CommonMark's escape for a bracket and LaTeX's
+  display maths opener. The rule is that maths has the line to itself: three
+  spaces of indent at most, blanks only after the closer. Merely *starting*
+  the line is not enough, or a bullet opening with a citation would be an
+  equation. `\(...\)` has no such clash and is claimed anywhere.
 - **Do not redirect pdflatex's stdout to `<job>.out`** — that is hyperref's
   bookmark file, and clobbering it produces a baffling `Missing { inserted`.
 - `grep -c` counts *lines*, not occurrences (this produced a phantom `\pausex`

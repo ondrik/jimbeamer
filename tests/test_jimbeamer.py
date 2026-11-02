@@ -1249,6 +1249,58 @@ Markdown on the way, which is what ate the underscores."""
     assert expected in render('# S\n\n%s\n' % markdown)
 
 
+###########################################
+# '\\[': display maths on its own line, an escaped bracket anywhere else
+###########################################
+
+@pytest.mark.parametrize('markdown', [
+    pytest.param('A citation \\[Clarke 81\\] mid-sentence.', id='mid-sentence'),
+    pytest.param('[a span with \\[Clarke 81\\]]{.hlvio}', id='in-a-span'),
+    pytest.param('* an item with \\[Clarke 81\\] in it', id='mid-item'),
+    pytest.param('\\[Clarke 81\\] opening a paragraph', id='opening-a-paragraph'),
+    pytest.param('* \\[Clarke 81\\] opening an item', id='opening-an-item'),
+])
+def test_escaped_brackets_are_brackets(render, markdown):
+    """CommonMark's escape for a bracket is '\\[', and claiming it for
+display maths everywhere meant a bracket could not be escaped at all: a
+citation came out as a centred equation.  What marks the maths is having
+the line to itself, not merely starting it -- a bullet that opens with a
+citation is the shape this has to get right."""
+    body = render('# S\n\n%s\n' % markdown)
+    assert 'Clarke 81' in body
+    assert '\\[' not in body
+    assert '\\]' not in body
+
+
+@pytest.mark.parametrize('markdown', [
+    pytest.param('\\[y = 1\\]', id='one-line'),
+    pytest.param('   \\[y = 1\\]', id='indented-three'),
+    pytest.param('\\[y = 1\\]   ', id='trailing-blanks'),
+    pytest.param('\\[\ny = 1\n\\]', id='several-lines'),
+])
+def test_display_maths_still_has_its_own_line(render, markdown):
+    """Everything the line-to-itself rule has to keep."""
+    body = render('# S\n\n%s\n' % markdown)
+    assert '\\[' in body and '\\]' in body
+    assert 'y = 1' in body
+
+
+def test_a_bracket_opening_an_item_is_braced(render):
+    """'\\item [x]' is how LaTeX is told the label is 'x': the brackets go,
+the bullet with them, and 'Clarke, E' is set off the left edge of the
+slide.  pdflatex reports nothing at all."""
+    body = render('# S\n\n* \\[RFC 5246\\] says so\n')
+    assert '\\item {[}RFC 5246] says so' in body
+
+
+def test_a_bracket_after_a_hard_break_is_braced(render):
+    """'\\\\[...]' is the optional vertical space after a break, so the
+citation was read as a length: 'Missing number, treated as zero' and
+'Illegal unit of measure', neither naming the line."""
+    body = render('# S\n\nfirst line\\\n\\[RFC 5246\\] second line\n')
+    assert '\\\\\n{[}RFC 5246] second line' in body
+
+
 def test_the_renderers_own_display_maths_is_valid_input(render):
     """It emits '\\[...\\]' for '$$...$$', so its output was not input to it."""
     once = render('# S\n\n$$a_1 + b_2$$\n')

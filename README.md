@@ -663,11 +663,27 @@ keeps `$pc_1 \land pc_2$` and `$a *b* c$` intact. Display maths becomes
 `\[...\]`, and a display and an inline formula may share a paragraph.
 
 LaTeX's own spellings work too — `\(x_1\)` and `\[y_2\]` — and come back as
-written, so the converter's output is valid input to it. The cost is that **a
-backslash before a bracket is maths, not an escape**: write `[1]` rather than
-`\[1\]` when you want a literal bracket. Nothing here needs escaping for
-Markdown's sake anyway, since a bracket only means something when a `(url)` or
-a `{.class}` follows it.
+written, so the converter's output is valid input to it.
+
+**`\[...\]` is display maths when it has the line to itself**, which is where
+display maths goes anyway. Up to three spaces may precede it (four would make
+a code block) and only blanks may follow it. Anywhere else `\[` is what it
+looks like, Markdown's escape for a literal bracket, so `a citation
+\[Clarke 81\] mid-sentence` prints the brackets — and so does a bullet or a
+paragraph that *opens* with one, since starting the line is not having it.
+`\(...\)` is inline maths wherever it appears, having no such ambiguity to
+settle.
+
+A literal bracket needs no escape in the first place: a `[` only means
+something to Markdown when a `(url)` or a `{.class}` follows it. The escape
+is there for when it does, and for the deck that reaches for it by habit.
+
+Where a bracket *starts* a bullet or a line after a hard break, it is emitted
+as `{[}`. LaTeX reads `\item [x]` as "the label is x" — the brackets go, the
+bullet goes with them, and the text is set off the left edge of the slide —
+and `\\[x]` as the vertical space after a break, which fails with `Missing
+number, treated as zero`. The braces take that reading away; nothing else
+changes.
 
 Two inline spans written with nothing at all between them (`$x$$y$`) are
 ambiguous, since that could be a display opener: the first is claimed and the
@@ -686,10 +702,10 @@ several nest with the first outermost: `[x]{.hlbl .hlgr}` is
 `\hlbl{\hlgr{x}}`, which means the *last* class is the colour you see. The
 contents are Markdown, and may run across a line break, since prose is
 wrapped — but the `]` and the `{` stay together, so `[text](url) {braces}` is
-not one of these. A literal bracket inside one is `\lbrack` and `\rbrack`:
-`[\lbrack Clarke, Emerson 81\rbrack]{.hlvio}` gives the citation in brackets,
-where `\[` is LaTeX's display maths rather than Markdown's escape, and `{[}`
-stops the span being a span at all. Nothing checks that the macro exists; a typo surfaces
+not one of these. Brackets inside one may be written `\[` and `\]`, the
+ordinary escape — `[a span with \[Clarke 81\]]{.hlvio}` keeps them — since
+display maths wants the whole line and this is not it. `{[}` does *not* work
+here: the inner bracket stops the span being a span at all. Nothing checks that the macro exists; a typo surfaces
 as an undefined control sequence from LaTeX, and `--pdf` will not show you
 that error. The template predefines `\hlbl` (`blue`), `\hlgr`
 (`olive!50!green`), `\hlrd` (`red`), `\hlorg` (`Orange`), `\hlgrey`

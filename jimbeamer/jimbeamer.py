@@ -1023,7 +1023,8 @@ class MathDisplay(marko.inline.InlineElement):
 
 
 class LatexMathDisplay(marko.inline.InlineElement):
-    """Display maths in LaTeX's own spelling, '\\[ ... \\]'.
+    """Display maths in LaTeX's own spelling, '\\[ ... \\]', at the start of
+a line.
 
 Claimed for the same reason '$$...$$' is: so that Markdown never looks
 inside.  Left to marko the '\\[' is an escaped bracket, a Literal whose
@@ -1031,10 +1032,21 @@ backslash render_literal() then drops -- so the maths became prose, silently,
 and the contents were parsed as Markdown on the way.  That the renderer
 *emits* this spelling for display maths made it worse: its own output was not
 valid input to it.
+
+Having a line to itself is what tells it from an escape.  '\\[' is also
+CommonMark's escape for a literal bracket, and claiming it everywhere meant
+a bracket could not be escaped at all: 'a citation \\[Smith 04\\]' came out
+as a centred equation.  Display maths occupies its own line -- LaTeX breaks
+the paragraph for it either way -- so that is what is required: nothing
+before the opener but up to three spaces (four would be a code block), and
+nothing after the closer but blanks.  A line that merely *starts* with one
+is not enough, or '\\[Clarke, Emerson 81\\] proved it' at the head of a
+bullet would be an equation, and that is the shape a citation takes.
 """
 
     priority = 9
-    pattern = re.compile(r'(?<!\\)\\\[([\s\S]+?)(?<!\\)\\\]')
+    pattern = re.compile(
+        r'(?m)^[ \t]{0,3}(?<!\\)\\\[([\s\S]+?)(?<!\\)\\\][ \t]*$')
     parse_children = False
 
 
@@ -2022,12 +2034,21 @@ A slide's title, as Markdown where it parsed as Markdown.
                     % (self.render(graphic), self.render_children(graphic)))
 
         text = self.render_children(element)
+        # A hard break is '\\\\', and '\\\\[...]' is the optional vertical
+        # space after one, so a line beginning with a bracket is read as a
+        # length: 'Missing number, treated as zero' and 'Illegal unit of
+        # measure', neither of which names the line it came from.  Only a
+        # break this renderer wrote is touched, which is why it is done
+        # here and not on the text at large.
+        text = text.replace('\\\\\n[', '\\\\\n{[}')
         return text + ('\n' if element._tight else '\n\n')
 
     def render_blank_line(self, element):
         return ''
 
     def render_line_break(self, element):
+        # A bracket after a hard break is braced by render_paragraph(),
+        # which is the one place that sees what follows the break.
         return '\n' if element.soft else '\\\\\n'
 
     def render_list(self, element):
@@ -2097,7 +2118,16 @@ standing for every level below those named.
         body = self.render_children(element).lstrip()
         if not body.strip():
             return '\\item\n'
-        return '\\item %s' % (body if body.endswith('\n') else body + '\n')
+        if not body.endswith('\n'):
+            body += '\n'
+        # '\item [x]' is how LaTeX is told the label is 'x': the brackets
+        # go, the bullet with them, and the text inside them is set into
+        # the margin.  A bullet that opens with a citation -- '[RFC 5246]
+        # says' -- is ordinary prose, and nothing anywhere reports it.
+        # Bracing the bracket is what the group is for.
+        if body.startswith('['):
+            body = '{[}' + body[1:]
+        return '\\item %s' % body
 
     def render_quote(self, element):
         return '\\begin{quote}\n%s\\end{quote}\n' % self.render_children(element)
