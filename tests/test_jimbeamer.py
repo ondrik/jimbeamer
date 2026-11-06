@@ -1153,6 +1153,19 @@ def test_uses_minted_on_a_missing_file_is_false(jimbeamer, tmp_path):
     assert jimbeamer.uses_minted(str(tmp_path / 'absent.tex')) is False
 
 
+def test_template_does_not_make_every_deck_need_ulem(template):
+    """ulem underlines links, and on Debian it is in texlive-plain-generic
+rather than any of the latex-* collections -- so loading it outright made
+a deck with no links at all fail on a lean installation with
+"File `ulem.sty' not found".  CI was that installation, which is how this
+was found."""
+    code = without_comments(template)
+    assert '\\IfFileExists{ulem.sty}' in code
+    assert '\\providecommand{\\uline}' in code
+    # the unguarded form is what must not come back
+    assert '\n\\usepackage[normalem]{ulem}' not in code
+
+
 def test_template_defines_the_link_mark(template):
     """The renderer wraps every link in it, so it cannot be left
 undefined -- the same contract \\tightlist has."""

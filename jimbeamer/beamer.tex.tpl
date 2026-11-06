@@ -125,7 +125,14 @@
 %% normalem, or ulem takes \emph over and sets emphasis underlined.
 %% \uline is used rather than \underline because it breaks across a line,
 %% which a link whose text is a phrase needs.
-\usepackage[normalem]{ulem}
+%%
+%% Guarded, because ulem lives in texlive-plain-generic on Debian and a
+%% lean installation may not have it.  Loading it unconditionally would
+%% make every deck need it, links or no links; the fallback gives up the
+%% line breaking and keeps the document compiling.
+\IfFileExists{ulem.sty}
+  {\usepackage[normalem]{ulem}}
+  {\providecommand{\uline}[1]{\underline{#1}}}
 
 %% How a link is marked, besides its colour.  The renderer wraps every
 %% \href, \hyperlink and \url in this, so it cannot be left undefined.

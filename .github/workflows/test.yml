@@ -66,7 +66,10 @@ jobs:
       # beamer and tabularx come with latex-recommended, upquote with
       # latex-extra, and lmodern is a package of its own that texlive-base
       # only recommends -- which is how a lean installation ends up without
-      # the converter's default font.
+      # the converter's default font.  ulem, which underlines links, is in
+      # plain-generic rather than any of the latex-* collections; the
+      # template copes without it, and this is here so that the compile
+      # tests exercise the branch a reader actually gets.
       - name: Install TeX and vim
         run: |
           sudo apt-get update
@@ -77,7 +80,8 @@ jobs:
             texlive-latex-base \
             texlive-latex-recommended \
             texlive-latex-extra \
-            texlive-fonts-recommended
+            texlive-fonts-recommended \
+            texlive-plain-generic
 
       - name: Install
         run: pip install -e '.[test]'
