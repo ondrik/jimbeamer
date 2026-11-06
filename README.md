@@ -90,6 +90,14 @@ default, and on Debian it lives in the `lmodern` package, which `texlive-base`
 only recommends. If your deck writes tables, it needs tabularx too — the
 template does not load that for you either.
 
+`highlighter: minted` is the one option that asks for more than LaTeX, which
+is why it is not the default. It wants the `minted` package (Debian:
+`texlive-latex-extra`) and, outside it, a program to do the colouring:
+`pygmentize` for minted 2 (`python3-pygments`), or `latexminted` for minted 3
+(`pip install latexminted`). None of this is a dependency of jimbeamer
+itself — nothing in the suite compiles a minted document — and a deck that
+leaves `highlighter` alone needs none of it.
+
 The template loads no `fontenc`, no `inputenc` and no `babel`, and `lang:` is
 not a key it reads. A deck with accented prose — `naïve`, `café`, `Köln` — compiles cleanly and looks right, but the glyphs are OT1 composites:
 the PDF cannot be searched or copied out of, and an accented word is never
