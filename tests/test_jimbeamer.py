@@ -1053,12 +1053,47 @@ def test_span_without_a_class_is_just_the_text(render):
 def test_render_link(render):
     """Coloured by default, so a link can be told from the prose."""
     body = render('# S\n\n[text](http://x.org)\n')
-    assert '\\href{http://x.org}{\\textcolor{blue}{text}}' in body
+    assert '\\href{http://x.org}{\\textcolor{blue}{\\jblink{text}}}' in body
+
+
+def test_template_defines_the_link_mark(template):
+    """The renderer wraps every link in it, so it cannot be left
+undefined -- the same contract \\tightlist has."""
+    assert '$linkstyle' in template
+
+
+@pytest.mark.parametrize('meta, expected', [
+    pytest.param('', '{\\uline{#1}}', id='default'),
+    pytest.param('linkstyle: underline\n', '{\\uline{#1}}', id='underline'),
+    pytest.param('linkstyle: bold\n', '{\\textbf{#1}}', id='bold'),
+    pytest.param('linkstyle: plain\n', '{#1}', id='plain'),
+    pytest.param('linkstyle: none\n', '{#1}', id='none'),
+])
+def test_linkstyle_defines_what_a_link_looks_like(convert, meta, expected):
+    """Underlined unless the deck says otherwise: colour alone does not
+survive a monochrome printout, and on a dark theme it is the first thing
+to go."""
+    result = convert('---\ntitle: T\n%s---\n\n# S\n\n[x](http://x.org)\n' % meta)
+    assert '\\newcommand{\\jblink}[1]%s' % expected in result
+
+
+def test_linkstyle_unknown_is_reported_and_falls_back(convert, capsys):
+    """A typo should not silently leave links unmarked."""
+    result = convert('---\ntitle: T\nlinkstyle: dotted\n---\n\n# S\n\nx\n')
+    assert 'unknown linkstyle' in capsys.readouterr().err
+    assert '\\newcommand{\\jblink}[1]{\\uline{#1}}' in result
+
+
+def test_linkstyle_reaches_the_template_from_the_command_line(convert):
+    """-V sets the flag, never the block, the way it does for toc."""
+    result = convert('---\ntitle: T\n---\n\n# S\n\nx\n',
+                     variable={'linkstyle': 'plain'})
+    assert '\\newcommand{\\jblink}[1]{#1}' in result
 
 
 def test_render_bare_url_is_coloured_too(render):
     body = render('# S\n\n<http://x.org>\n')
-    assert '\\textcolor{blue}{\\url{http://x.org}}' in body
+    assert '\\textcolor{blue}{\\jblink{\\url{http://x.org}}}' in body
 
 
 @pytest.mark.parametrize('url, expected', [
@@ -1086,20 +1121,20 @@ def test_render_internal_link(render):
     """'[text](#intro)' pairs with the '{#intro}' heading attribute."""
     body = render('# Intro {#intro}\n\n# S\n\n[back](#intro)\n')
     assert '\\begin{frame}[label=intro]' in body
-    assert '\\hyperlink{intro}{\\textcolor{blue}{back}}' in body
+    assert '\\hyperlink{intro}{\\textcolor{blue}{\\jblink{back}}}' in body
 
 
 def test_render_link_colour_can_be_chosen(convert):
     result = convert('---\nurlcolor: "olive!50!green"\n---\n\n'
                      '# S\n\n[text](http://x.org)\n')
-    assert '\\textcolor{olive!50!green}{text}' in result
+    assert '\\textcolor{olive!50!green}{\\jblink{text}}' in result
 
 
 def test_render_internal_links_have_their_own_colour(convert):
     result = convert('---\nurlcolor: blue\nlinkcolor: red\n---\n\n'
                      '# S\n\n[out](http://x.org) [in](#a)\n')
-    assert '\\textcolor{blue}{out}' in result
-    assert '\\textcolor{red}{in}' in result
+    assert '\\textcolor{blue}{\\jblink{out}}' in result
+    assert '\\textcolor{red}{\\jblink{in}}' in result
 
 
 def test_render_links_are_not_coloured_when_switched_off(convert):
@@ -1108,8 +1143,8 @@ def test_render_links_are_not_coloured_when_switched_off(convert):
                      '# S\n\n[text](http://x.org) <http://y.org>\n')
     # the template defines \hl... in terms of \textcolor{blue}, so assert on
     # the wrapped link itself rather than on the colour anywhere
-    assert '\\href{http://x.org}{text}' in result
-    assert '\\url{http://y.org}' in result
+    assert '\\href{http://x.org}{\\jblink{text}}' in result
+    assert '\\jblink{\\url{http://y.org}}' in result
     assert '\\textcolor{blue}{text}' not in result
 
 

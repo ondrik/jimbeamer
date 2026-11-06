@@ -38,6 +38,16 @@ TEMPLATE_ENV_VAR = 'JIMBEAMER_TEMPLATE'
 # LaTeX and be read as maths.  These are the values used when the metadata
 # block says nothing.  'default' is a real Beamer theme name in all three
 # cases, so the fallbacks produce a plain but valid presentation.
+# What 'linkstyle' may say, and the definition of \jblink each one
+# produces.  Links are underlined unless a deck says otherwise: colour
+# alone does not survive a monochrome printout, and on a dark theme it is
+# the first thing to go.
+LINK_STYLES = {
+    'underline': '\\newcommand{\\jblink}[1]{\\uline{#1}}',
+    'bold': '\\newcommand{\\jblink}[1]{\\textbf{#1}}',
+    'plain': '\\newcommand{\\jblink}[1]{#1}',
+}
+
 TEMPLATE_DEFAULTS = {
     'theme': 'default',
     'colortheme': 'default',
@@ -57,13 +67,15 @@ TEMPLATE_DEFAULTS = {
     'sectionpages': '',
     'toc': '',
     'handout': '',
+    'linkstyle': LINK_STYLES['underline'],
 }
 
 # Template variables whose value is a block of LaTeX computed from a
 # metadata flag rather than taken from it.  -V sets the flag, never the
 # block: '-V toc=false' means no table of contents, not the word 'false'
 # printed where one would have been.
-FLAG_VARIABLES = ('titlepage', 'sectionpages', 'toc', 'handout')
+FLAG_VARIABLES = ('titlepage', 'sectionpages', 'toc', 'handout',
+                  'linkstyle')
 
 # The separator slide hooked onto each sectioning level when 'section-titles'
 # is on.  [plain,noframenumbering] is what a divider wants: no headline or
@@ -923,6 +935,17 @@ metadata block.
                             % (meta.get('toc-title') or DEFAULT_TOC_TITLE))
     else:
         variables['toc'] = ''
+
+    # 'linkstyle: plain' leaves a link marked by its colour alone, which
+    # is what the deck gets if it also turns colorlinks off: nothing.
+    style = str(meta.get('linkstyle') or 'underline').strip().lower()
+    if style in ('none', 'false', ''):
+        style = 'plain'
+    if style not in LINK_STYLES:
+        print("%s: warning: unknown linkstyle '%s'; known: %s"
+              % (PROG, style, ', '.join(sorted(LINK_STYLES))), file=sys.stderr)
+        style = 'underline'
+    variables['linkstyle'] = LINK_STYLES[style]
 
     variables['slides'] = slides
     return variables
@@ -2306,19 +2329,27 @@ is a Literal and never reaches this either, which is the way out.
         """coloured(str, str) -> str: the text, in `colour' if there is one."""
         return '\\textcolor{%s}{%s}' % (colour, text) if colour else text
 
+    def marked(self, text, colour):
+        """marked(str, str) -> str: a link's text, as a link looks.
+
+'\\jblink' is the template's, so what links look like is one definition
+there rather than a decision taken here for each of the three kinds.
+"""
+        return self.coloured('\\jblink{%s}' % text, colour)
+
     def render_link(self, element):
         body = self.render_children(element)
         if element.dest.startswith('#'):
             # '[text](#intro)' pairs with the '{#intro}' heading attribute,
             # which beamer turns into label=intro
             return '\\hyperlink{%s}{%s}' % (
-                element.dest[1:], self.coloured(body, self.link_color))
+                element.dest[1:], self.marked(body, self.link_color))
         return '\\href{%s}{%s}' % (escape_url(element.dest),
-                                   self.coloured(body, self.url_color))
+                                   self.marked(body, self.url_color))
 
     def render_auto_link(self, element):
-        return self.coloured('\\url{%s}' % escape_url(element.dest),
-                             self.url_color)
+        return self.marked('\\url{%s}' % escape_url(element.dest),
+                           self.url_color)
 
     def render_image(self, element):
         # a reference-style image, '![alt][ref]', which carries no attributes

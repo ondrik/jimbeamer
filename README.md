@@ -228,6 +228,7 @@ toc:      true
 | `handout` | `false` | empty `\xpause`, and with it `\pausex`, so every frame is one page |
 | `header-includes` | empty | LaTeX injected last in the preamble, so it overrides everything above; a `@preamble` block in the deck is usually the easier place to write it |
 | `colorlinks` | `true` | colour the link text |
+| `linkstyle` | `underline` | how a link is marked besides its colour: `underline`, `bold` or `plain` |
 | `urlcolor` | `blue` | colour for `\href` and `\url` |
 | `linkcolor` | whatever `urlcolor` is | colour for internal `[text](#label)` links |
 | `smart` | `true` | turn `"` into typographic quotes |
@@ -269,7 +270,7 @@ A few things worth knowing about that table:
 * `slide-level` and `escapechar` are *not* metadata keys, unlike pandoc —
   they are command-line options only.
 * Nothing warns about a key it does not know. `filecolor`, `citecolor`,
-  `linkstyle`, `titlegraphic` and `logo` parse and are then discarded, and a
+  `titlegraphic` and `logo` parse and are then discarded, and a
   misspelled key is simply inert.
 * A `#` comment is YAML's own way to disable a line; `<!-- ... -->` lines are
   stripped from the block before it is parsed, and work too.
@@ -713,9 +714,11 @@ that error. The template predefines `\hlbl` (`blue`), `\hlgr`
 
 **Links.** `[text](url)` becomes `\href`, `<url>` becomes `\url`, and
 `[text](#label)` becomes `\hyperlink`, pairing with the `{#label}` heading
-attribute. All three are coloured so they can be told from the prose; only the
-link text is, never beamer's own navigation, which on a dark theme would put
-blue on blue. Bare URLs are not autolinked — write `<...>`.
+attribute. All three are underlined and coloured so they can be told from the
+prose; only the link text is, never beamer's own navigation, which on a dark
+theme would put blue on blue. `linkstyle: plain` drops the underline and
+`linkstyle: bold` trades it for bold — colour alone is what a monochrome
+handout loses, which is why it is not the default. Bare URLs are not autolinked — write `<...>`.
 
 **Quotes.** A straight `"` becomes ``` ``like this'' ```, which LaTeX sets as
 “like this”. Which way a quote leans is decided from the character before it
@@ -894,7 +897,7 @@ Known gaps, kept in full in [`TODO.md`](https://github.com/ondrik/jimbeamer/blob
 * **Syntax highlighting.** Listings' monochrome bold keywords, where pandoc
   colours them through pygments.
 * **Strikethrough and footnotes.**
-* `filecolor`, `citecolor`, `linkstyle`, `titlegraphic` and `logo` parse and
+* `filecolor`, `citecolor`, `titlegraphic` and `logo` parse and
   are discarded.
 * A multi-line `title` leaks its `\\` into the footline; give an explicit
   `short-title` until that is fixed.

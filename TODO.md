@@ -64,11 +64,11 @@ desired, so fixing it will fail that test and prompt updating the document.
 | Key | What it would take |
 |---|---|
 | `filecolor`, `citecolor` | nothing is emitted that would use them — no file or citation links |
-| `linkstyle` | pandoc's bold/underline link styling, which has no equivalent here |
 | `titlegraphic`, `logo` | a `\titlegraphic`/`\logo` line, guarded |
 
 `topic` was on this list and is off it: pandoc ignores it too, so there is
-nothing to do. `colorlinks`, `urlcolor` and `linkcolor` are honoured now, as
+nothing to do. `linkstyle` is off it as well, and honoured: `underline` (the
+default), `bold` or `plain`. `colorlinks`, `urlcolor` and `linkcolor` are honoured now, as
 are `toc` and `section-titles`.
 
 `$titlepage`, `$sectionpages` and `$toc` are the precedent for whatever is

@@ -122,6 +122,16 @@
 \usepackage{graphicx}
 \usepackage{xspace}
 
+%% normalem, or ulem takes \emph over and sets emphasis underlined.
+%% \uline is used rather than \underline because it breaks across a line,
+%% which a link whose text is a phrase needs.
+\usepackage[normalem]{ulem}
+
+%% How a link is marked, besides its colour.  The renderer wraps every
+%% \href, \hyperlink and \url in this, so it cannot be left undefined.
+%% metadata: linkstyle
+$linkstyle
+
 %% Fenced code blocks become lstlisting, so the package is not optional.
 %% Settings come before header-includes, so that a \lstset of your own wins.
 \usepackage{listings}
