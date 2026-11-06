@@ -27,6 +27,7 @@ and is nobody's dependency to declare.
 |---|---|
 | `jimbeamer/jimbeamer.py` | the whole converter, one module |
 | `jimbeamer/__init__.py` | what `pip` installs the `jimbeamer` command against |
+| `jimbeamer/__main__.py` | what `python -m jimbeamer` runs, so the suite can exercise the command without installing it |
 | `jimbeamer/_version.py` | the version, alone so the build backend can read it without importing the converter — and what a release tag is checked against |
 | `jimbeamer/beamer.tex.tpl` | the Beamer preamble, external on purpose, and shipped as package data |
 | `pyproject.toml` | the package: dependencies, the console script, the metadata |
@@ -69,6 +70,7 @@ near the top of `jimbeamer`:
 | `BRACKET_TITLE_DIRECTIVES` | which take `[title]` rather than `{title}` |
 | `SIBLING_DIRECTIVES` | which close a previous one of the same name |
 | `CONDITIONAL_DIRECTIVES` | `@if` and `@ifnot`, and which way each reads the variable |
+| `DIRECTIVE_ELSE_RE` | the `@else` that divides a conditional's branches |
 | `COMMAND_DIRECTIVES` | which emit `\name{...}` instead of an environment |
 | `DIRECTIVE_DEFAULT_ARGUMENTS` | `@columns` without arguments |
 | `LISTINGS_LANGUAGES` | fence word to `listings` language |
@@ -350,8 +352,19 @@ the way `$titlepage`, `$sectionpages` and `$toc` are.
 
 ## Conventions
 
-- Branch is `master`. Commit messages explain *why*, and record what was
-  deliberately left undone.
+- Branch is `master`, and **it is protected: a direct push is refused.**
+  A ruleset requires a pull request and the seven `test.yml` checks, blocks
+  force pushes and deletion, and gives the admin role a bypass in
+  `pull_request` mode -- which lets a maintainer force-merge a PR whose
+  checks they judge irrelevant, and still refuses a push straight to
+  `master`. So: branch, push the branch, open a PR, merge it when CI is
+  green. The rule exists because four commits once went up on a red CI
+  without anything stopping them.
+
+  Tags are not covered by it, which is deliberate: a release is a tag, and
+  the tag is pushed to `master` after the version bump has been merged.
+- Commit messages explain *why*, and record what was deliberately left
+  undone.
 - **The landing page is `docs/`.** GitHub Pages must be pointed at the
   `/docs` folder of `master`; left at the repository root, which is the
   default, GitHub serves a zero-config render of `README.md` instead and
