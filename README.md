@@ -532,6 +532,39 @@ gives `\begin{columns}[T]`, a `\begin{column}{0.45\textwidth}` and a
 listing. `[T]` is the default because without it beamer centres the columns
 against each other, and a short column of code floats beside a tall one.
 
+### Content that depends on a variable
+
+`@if` keeps what it holds when a metadata variable is set, and `@ifnot`
+when it is not, so one source builds both versions of a deck:
+
+```markdown
+@if handout
+The derivation in full, since nobody is reading this off a screen.
+@end if
+
+@ifnot handout
+* the short version
+\pausex
+* built up live
+@end ifnot
+```
+
+Any variable will do, not just `handout`, and the value is read the way
+every other flag is: `false`, `no`, `off`, `0` and empty are not set, and a
+variable that was never given is not set either. `-V handout=true` therefore
+switches the deck from the command line without touching the source:
+
+```console
+$ jimbeamer deck.md -o screen.tex
+$ jimbeamer deck.md -V handout=true -o handout.tex
+```
+
+The branch not taken is not rendered at all, so nothing in it is reported
+and nothing in it reaches the output. Like every other directive, these are
+closed by `@end` (`@end if`, `@end ifnot`) and by any heading — which means
+a conditional lives inside a slide rather than spanning several. `@if` with
+no variable named is reported on stderr.
+
 `@note`, `@alert`, `@only`, `@uncover`, `@visible` and `@invisible` emit
 `\note{...}` and friends rather than an environment. **The argument on the
 directive line is discarded** — `@note remember this` loses "remember this" —

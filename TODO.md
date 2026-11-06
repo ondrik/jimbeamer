@@ -125,7 +125,10 @@ risk is a *block*-shaped value, `1. Introduction` being the realistic one, so
 a value is parsed only when it parses as a single paragraph and is otherwise
 passed through as it always was.
 
-**The template engine.** `string.Template` has no conditionals, so every
+**The template engine.** *(A deck can now branch on a variable with `@if`
+and `@ifnot`, which takes the content half of this away: what is left for
+an engine is the preamble half, where a conditional would choose between
+two `\usepackage` lines rather than two slides.)* `string.Template` has no conditionals, so every
 optional preamble block has to be computed in Python and injected whole. That
 has been fine three times over (`$titlepage`, `$sectionpages`, `$toc`) and the
 pattern is clear. What is left that would want conditionals is small — the

@@ -266,6 +266,13 @@ BRACKET_TITLE_DIRECTIVES = frozenset("""
 COMMAND_DIRECTIVES = frozenset(('note', 'alert', 'only', 'uncover', 'visible',
                                 'invisible'))
 
+# Directives that keep or drop what they hold, according to a metadata
+# variable: '@if handout' keeps it when handout is set, '@ifnot handout'
+# when it is not.  The value is read the way every other flag is, so
+# 'false', 'no', 'off', '0' and empty are not set, and '-V handout=true'
+# works as well as the metadata block.
+CONDITIONAL_DIRECTIVES = {'if': True, 'ifnot': False}
+
 # Directives where repeating the name closes the previous one instead of
 # nesting inside it, so a row of columns needs no @end between them.
 SIBLING_DIRECTIVES = frozenset(('column',))
@@ -1895,6 +1902,9 @@ happens inside `inline code', where the text is meant to be literal.
     #: whether '"' becomes a typographic quote; set by make_markdown()
     smart = True
 
+    #: the document's metadata, for '@if'; set by make_markdown()
+    metadata = {}
+
     #: the last character rendered, so that a quote opening a span of
     #: emphasis can still tell what came before it
     _previous = ''
@@ -2196,6 +2206,9 @@ standing for every level below those named.
         return '\\medskip\\hrule\\medskip\n'
 
     def render_directive(self, element):
+        if element.name in CONDITIONAL_DIRECTIVES:
+            return self.render_conditional(element)
+
         body = self.render_children(element)
         arguments = self.directive_arguments(element)
 
@@ -2204,6 +2217,25 @@ standing for every level below those named.
 
         return '\\begin{%s}%s%s\n%s\\end{%s}\n' % (
             element.name, element.overlay, arguments, body, element.name)
+
+    def render_conditional(self, element):
+        """render_conditional(Directive) -> str
+
+What '@if name' holds, when `name' is set in the metadata, and what
+'@ifnot name' holds when it is not.  Nothing otherwise -- and the contents
+are not rendered at all in that case, so a '@pausex' or a stray '@end'
+inside a dropped branch says nothing either.
+"""
+        variable = element.text.strip()
+        if not variable:
+            print('%s: warning: %s with no variable named'
+                  % (PROG, element.name), file=sys.stderr)
+            return ''
+
+        wanted = CONDITIONAL_DIRECTIVES[element.name]
+        if as_bool(self.metadata.get(variable), False) is not wanted:
+            return ''
+        return self.render_children(element)
 
     def directive_arguments(self, element):
         """directive_arguments(Directive) -> str"""
@@ -2420,7 +2452,8 @@ because link colours are a property of the document, not of the run.
                      'link_color': link_color,
                      'highlight': str(meta.get('highlight')
                                       or DEFAULT_HIGHLIGHT),
-                     'smart': as_bool(meta.get('smart'), True)})
+                     'smart': as_bool(meta.get('smart'), True),
+                     'metadata': meta})
     return BeamerMarkdown(renderer=renderer,
                           extensions=[markdown_extension()])
 

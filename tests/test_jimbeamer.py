@@ -1675,6 +1675,70 @@ slide."""
     assert '\\begin{block}{B}\n\\begin{column}' in body
 
 
+###########################################
+# '@if' and '@ifnot': content that depends on a variable
+###########################################
+
+@pytest.mark.parametrize('meta, kept, dropped', [
+    pytest.param('handout: true\n', 'for the handout', 'for the screen',
+                 id='set'),
+    pytest.param('handout: false\n', 'for the screen', 'for the handout',
+                 id='false'),
+    pytest.param('', 'for the screen', 'for the handout', id='absent'),
+])
+def test_conditional_directives_choose_a_branch(convert, meta, kept, dropped):
+    """One source, both builds: '@if handout' keeps what it holds when the
+variable is set and '@ifnot handout' when it is not."""
+    result = convert('---\ntitle: T\n%s---\n\n# S\n\n'
+                     '@if handout\nfor the handout\n@end if\n\n'
+                     '@ifnot handout\nfor the screen\n@end ifnot\n' % meta)
+    assert kept in result
+    assert dropped not in result
+
+
+def test_conditional_reads_the_variable_as_every_other_flag_does(convert):
+    """'false', 'no', 'off', '0' and empty are not set -- the same reading
+'handout' itself gets, so -V works on both the same way."""
+    for value in ('no', 'off', '0', ''):
+        result = convert('---\ntitle: T\nflag: "%s"\n---\n\n# S\n\n'
+                         '@if flag\nvisible-branch\n@end if\n' % value)
+        assert 'visible-branch' not in result, value
+
+
+def test_conditional_follows_a_command_line_variable(convert):
+    """Which is the point of it: one deck, two builds, no editing."""
+    source = ('---\ntitle: T\n---\n\n# S\n\n'
+              '@if handout\nfor the handout\n@end if\n')
+    assert 'for the handout' not in convert(source)
+    assert 'for the handout' in convert(source,
+                                        variable={'handout': 'true'})
+
+
+def test_conditional_emits_nothing_at_all_when_dropped(convert, capsys):
+    """Not rendered rather than rendered and thrown away, so a stray '@end'
+in the branch not taken says nothing either."""
+    result = convert('---\ntitle: T\n---\n\n# S\n\n'
+                     '@if handout\n@end block\nvisible-branch\n@end if\n')
+    assert 'visible-branch' not in result
+    assert capsys.readouterr().err == ''
+
+
+def test_conditional_holds_markdown_and_nests(convert):
+    """Its contents are a deck's contents, directives included."""
+    result = convert('---\ntitle: T\nhandout: true\n---\n\n# S\n\n'
+                     '@if handout\n@block Note\n* a **bullet**\n'
+                     '@end block\n@end if\n')
+    assert '\\begin{block}{Note}' in result
+    assert '\\textbf{bullet}' in result
+
+
+def test_conditional_with_no_variable_is_reported(convert, capsys):
+    """Naming nothing cannot be a question, so it is a mistake."""
+    result = convert('---\ntitle: T\n---\n\n# S\n\n@if\nx\n@end if\n')
+    assert 'with no variable named' in capsys.readouterr().err
+    assert '\\begin{if}' not in result
+
+
 def test_directive_heading_closes_it(render):
     """No environment may reach past the end of its frame."""
     body = render('# One\n\n@column 0.5\ntext\n\n# Two\n\nmore\n')

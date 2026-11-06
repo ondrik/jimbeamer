@@ -75,6 +75,10 @@ header-includes: |
 \pausex
 * \hlbl{cons}: problematic coverage of `corner_cases`
 
+@ifnot handout
+* a bullet the handout build leaves out
+@end ifnot
+
 # Maths
 * a talk is a pair $\mathit{t} = (\mathit{slides}, \mathit{minutes})$
 * no two slots overlap: $s_1 \land s_2$ is never true
