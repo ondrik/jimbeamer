@@ -70,6 +70,7 @@ near the top of `jimbeamer`:
 | `BRACKET_TITLE_DIRECTIVES` | which take `[title]` rather than `{title}` |
 | `SIBLING_DIRECTIVES` | which close a previous one of the same name |
 | `CONDITIONAL_DIRECTIVES` | `@if` and `@ifnot`, and which way each reads the variable |
+| `DIRECTIVE_ELSE_RE` | the `@else` that divides a conditional's branches |
 | `COMMAND_DIRECTIVES` | which emit `\name{...}` instead of an environment |
 | `DIRECTIVE_DEFAULT_ARGUMENTS` | `@columns` without arguments |
 | `LISTINGS_LANGUAGES` | fence word to `listings` language |
