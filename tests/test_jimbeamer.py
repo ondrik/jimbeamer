@@ -1056,6 +1056,103 @@ def test_render_link(render):
     assert '\\href{http://x.org}{\\textcolor{blue}{\\jblink{text}}}' in body
 
 
+###########################################
+# 'highlighter': listings or minted
+###########################################
+
+def test_fences_are_listings_by_default(convert):
+    """listings needs nothing but LaTeX; minted wants pygmentize on the
+PATH and -shell-escape on the engine, so it is opted into."""
+    result = convert('---\ntitle: T\n---\n\n# S\n\n```C\nint x;\n```\n')
+    assert '\\begin{lstlisting}' in result
+    assert 'usepackage{minted}' not in result
+
+
+def test_minted_is_chosen_by_the_metadata(convert):
+    result = convert('---\ntitle: T\nhighlighter: minted\n---\n\n'
+                     '# S\n\n```C\nint x;\n```\n')
+    assert '\\begin{minted}{c}\nint x;\n\\end{minted}' in result
+    assert '\\usepackage{minted}' in result
+    assert '\\begin{lstlisting}' not in result
+
+
+def test_minted_takes_the_fence_word_as_pygments_knows_it(convert):
+    """Its aliases are the ones a deck author already writes."""
+    for fence, lexer in (('cpp', 'cpp'), ('c++', 'c++'), ('py', 'py')):
+        result = convert('---\ntitle: T\nhighlighter: minted\n---\n\n'
+                         '# S\n\n```%s\nx\n```\n' % fence)
+        assert '\\begin{minted}{%s}' % lexer in result
+
+
+def test_minted_needs_a_language_even_when_the_fence_has_none(convert):
+    """'\\begin{minted}' with no argument does not compile."""
+    result = convert('---\ntitle: T\nhighlighter: minted\n---\n\n'
+                     '# S\n\n```\nplain\n```\n')
+    assert '\\begin{minted}{text}' in result
+
+
+def test_a_listings_fence_stays_listings_under_minted(convert):
+    """It is written for that package's escapes, which minted cannot
+read: '@$x$@' is listings input, not a language."""
+    result = convert('---\ntitle: T\nhighlighter: minted\n---\n\n'
+                     '# S {.fragile}\n\n```lstlisting\n@$x$@ := 1\n```\n')
+    assert '\\begin{lstlisting}[escapechar=@]' in result
+    assert '\\begin{minted}' not in result
+
+
+def test_unknown_highlighter_is_reported_and_falls_back(convert, capsys):
+    result = convert('---\ntitle: T\nhighlighter: pygments\n---\n\n'
+                     '# S\n\n```C\nint x;\n```\n')
+    assert 'unknown highlighter' in capsys.readouterr().err
+    assert '\\begin{lstlisting}' in result
+
+
+@pytest.mark.parametrize('line, expected', [
+    pytest.param('\\usepackage{minted}', True, id='plain'),
+    pytest.param('\\usepackage[cache=false]{minted}', True, id='options'),
+    pytest.param('  \\usepackage{minted}', True, id='indented'),
+    pytest.param('% \\usepackage{minted}', False, id='commented-out'),
+    pytest.param('\\usepackage{listings}', False, id='another-package'),
+])
+def test_uses_minted_decides_the_shell_escape(jimbeamer, tmp_path, line,
+                                              expected):
+    """-shell-escape is read off the document rather than the metadata, so
+a deck pulling minted in through '@preamble' is covered too -- and nothing
+is granted to a document that never asked."""
+    path = tmp_path / 'deck.tex'
+    path.write_text('%s\n\\begin{document}\n\\end{document}\n' % line,
+                    encoding='utf-8')
+    assert jimbeamer.uses_minted(str(path)) is expected
+
+
+@pytest.mark.parametrize('major, allowed, needed', [
+    pytest.param(2, (), True, id='minted2'),
+    pytest.param(2, ('latexminted',), True, id='minted2-even-if-allowed'),
+    pytest.param(None, ('latexminted',), True, id='version-unknown'),
+    pytest.param(3, ('bibtex', 'kpsewhich'), True, id='minted3-not-allowed'),
+    pytest.param(3, ('bibtex', 'latexminted'), False, id='minted3-allowed'),
+])
+def test_minted_shell_escape_follows_the_installation(jimbeamer, monkeypatch,
+                                                      major, allowed, needed):
+    """minted 2 shells out to pygmentize and the engine will not without
+the flag.  minted 3 runs 'latexminted', which needs no permission -- but
+only where the installation lists it among the commands restricted shell
+escape may run; TeX Live added it in 2025, and on an older one minted 3
+stops with "not permitted with restricted shell escape".
+
+Both halves were checked against this machine before being written down:
+with minted 3 installed and latexminted not listed, pdflatex refuses; with
+it listed, the same document builds with no flag at all."""
+    monkeypatch.setattr(jimbeamer, 'minted_major', lambda: major)
+    monkeypatch.setattr(jimbeamer, 'restricted_shell_escape_commands',
+                        lambda: allowed)
+    assert jimbeamer.minted_needs_shell_escape() is needed
+
+
+def test_uses_minted_on_a_missing_file_is_false(jimbeamer, tmp_path):
+    assert jimbeamer.uses_minted(str(tmp_path / 'absent.tex')) is False
+
+
 def test_template_defines_the_link_mark(template):
     """The renderer wraps every link in it, so it cannot be left
 undefined -- the same contract \\tightlist has."""

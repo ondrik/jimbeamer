@@ -87,10 +87,11 @@ column specifications, alignment, and deciding between `tabular` and
 `tabularx`. A deck can write `\begin{tabularx}` by hand meanwhile, which is
 what the example does.
 
-**Syntax highlighting.** The last visual gap against pandoc, which colours
-keywords via pygments where ours is monochrome with bold keywords. The cheap
-version is a richer `\lstset` in the template (keyword, comment and string
-styles); the faithful version is per-language styling.
+**Syntax highlighting with listings.** `highlighter: minted` colours
+through Pygments and closes the gap against pandoc, so what is left here is
+the deck that wants colour *without* minted's dependency: a richer `\lstset`
+in the template (keyword, comment and string styles), which is the cheap
+version, or per-language styling, which is the faithful one.
 
 **`strikethrough` and footnotes.** Marko's GFM elements would make both cheap.
 

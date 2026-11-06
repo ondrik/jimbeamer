@@ -138,6 +138,12 @@ $linkstyle
 %% Straight quotes in code: without this, 'B' in a listing comes out as
 %% typographic quotes, which is wrong for a character literal.
 \IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+%% Pygments instead of listings, when the deck asks for it.  Empty
+%% otherwise -- minted shells out to pygmentize on every run, so a deck
+%% that does not want it should not pay for it.
+%% metadata: highlighter
+$minted
+
 \lstset{
   basicstyle=\ttfamily\small,
   columns=fullflexible,

@@ -72,6 +72,7 @@ near the top of `jimbeamer`:
 | `COMMAND_DIRECTIVES` | which emit `\name{...}` instead of an environment |
 | `DIRECTIVE_DEFAULT_ARGUMENTS` | `@columns` without arguments |
 | `LISTINGS_LANGUAGES` | fence word to `listings` language |
+| `HIGHLIGHTERS` | `listings` or `minted`, and what `highlighter:` may say |
 | `LATEX_ESCAPES`, `URL_ESCAPES` | the two escape tables |
 | `TEMPLATE_DEFAULTS`, `FLAG_VARIABLES` | what every template variable falls back to |
 | `SLIDE_METADATA_KEYS` | what a slide's own `---` block understands |

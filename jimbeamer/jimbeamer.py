@@ -68,6 +68,7 @@ TEMPLATE_DEFAULTS = {
     'toc': '',
     'handout': '',
     'linkstyle': LINK_STYLES['underline'],
+    'minted': '',
 }
 
 # Template variables whose value is a block of LaTeX computed from a
@@ -75,7 +76,7 @@ TEMPLATE_DEFAULTS = {
 # block: '-V toc=false' means no table of contents, not the word 'false'
 # printed where one would have been.
 FLAG_VARIABLES = ('titlepage', 'sectionpages', 'toc', 'handout',
-                  'linkstyle')
+                  'linkstyle', 'minted')
 
 # The separator slide hooked onto each sectioning level when 'section-titles'
 # is on.  [plain,noframenumbering] is what a divider wants: no headline or
@@ -147,12 +148,29 @@ HEADING_ATTRS_RE = re.compile(
 # that '@$x_1$@' typesets as maths instead of printing as itself.  Only
 # these fences get it, since a C snippet is free to contain an '@'.
 RAW_LISTING_LANGUAGES = ('lstlisting', 'listings')
+
+# 'highlighter:' chooses what a fenced block becomes.  listings is the
+# default because it needs nothing but LaTeX; minted colours through
+# Pygments, which means pygmentize on the PATH and -shell-escape on the
+# engine -- run_latex() adds that when it sees the package.
+HIGHLIGHTERS = ('listings', 'minted')
+MINTED_PREAMBLE = ('\\usepackage{minted}\n'
+                   '\\setminted{fontsize=\\small,breaklines=true,'
+                   'tabsize=2,autogobble=true}')
+#: what a fence with no language becomes under minted, which wants one
+MINTED_DEFAULT_LANGUAGE = 'text'
 LISTINGS_ESCAPECHAR = '@'
 
 # An error as -file-line-error writes it: './deck.tex:150: Missing $ inserted.'
 # The path is anything up to the last colon-digits-colon, since it may itself
 # contain a colon.
 FILE_LINE_ERROR_RE = re.compile(r'^.+:\d+: .')
+
+# '\usepackage{minted}', however it is spelled, and not behind a comment.
+MINTED_USE_RE = re.compile(r'(?m)^[^%\n]*\\usepackage(?:\[[^]]*\])?\{minted\}')
+
+# The version minted.sty announces: '[2023/12/18 v2.9 Yet another ...]'.
+MINTED_VERSION_RE = re.compile(r'\[\d{4}/\d\d/\d\d\s+v(\d+)\.')
 
 # Fence languages that the listings package knows.  It errors out on a
 # language it cannot load, so anything missing here becomes a plain listing.
@@ -488,6 +506,90 @@ Throws the temporary file away, leaving whatever was at the target alone.
 
 
 ###########################################
+def uses_minted(path):
+    """uses_minted(str) -> bool: whether the document loads minted."""
+    try:
+        with open(path, encoding='utf-8') as handle:
+            return bool(MINTED_USE_RE.search(handle.read()))
+    except OSError:
+        return False
+
+
+###########################################
+def minted_major():
+    """minted_major() -> int or None
+
+The major version of the minted.sty this TeX installation would load, or
+None when it cannot be found or read.
+
+Read for minted_needs_shell_escape(), which is the only thing that cares.
+"""
+    if not shutil.which('kpsewhich'):
+        return None
+    try:
+        done = subprocess.run(['kpsewhich', 'minted.sty'],
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL)
+    except OSError:
+        return None
+    path = done.stdout.decode('utf-8', 'replace').strip().splitlines()
+    if done.returncode or not path:
+        return None
+    try:
+        with open(path[0], encoding='utf-8', errors='replace') as handle:
+            # the banner is in the first few lines, and the file is large
+            head = handle.read(4096)
+    except OSError:
+        return None
+    match = MINTED_VERSION_RE.search(head)
+    return int(match.group(1)) if match else None
+
+
+###########################################
+def restricted_shell_escape_commands():
+    """restricted_shell_escape_commands() -> tuple
+
+The commands this TeX installation lets a document run without being given
+-shell-escape, as kpsewhich reports them.  Empty when it cannot be asked,
+which reads as "nothing is allowed" and so errs toward passing the flag.
+"""
+    if not shutil.which('kpsewhich'):
+        return ()
+    try:
+        done = subprocess.run(
+            ['kpsewhich', '--var-value', 'shell_escape_commands'],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    except OSError:
+        return ()
+    if done.returncode:
+        return ()
+    listed = done.stdout.decode('utf-8', 'replace').strip()
+    return tuple(name.strip() for name in listed.split(',') if name.strip())
+
+
+###########################################
+def minted_needs_shell_escape():
+    """minted_needs_shell_escape() -> bool
+
+Whether a document loading minted has to be given -shell-escape.
+
+minted 2 shells out to pygmentize, which the engine will not do unless
+asked.  minted 3 runs 'latexminted' instead, which needs no such
+permission -- but only where the installation lists it among the commands
+restricted shell escape may run.  TeX Live added it in 2025; on an older
+one, minted 3 stops with "not permitted with restricted shell escape",
+and the flag is needed after all.
+
+Both halves are read from the installation rather than assumed, because
+granting it where it is not needed is a permission given for nothing, and
+withholding it where it is needed is a build that does not run.
+"""
+    if (minted_major() or 2) < 3:
+        return True
+    return 'latexminted' not in restricted_shell_escape_commands()
+
+
+###########################################
 def run_latex(path, quiet=True):
     """run_latex(str, bool) -> int
 
@@ -501,6 +603,12 @@ the .log, since the engine's own output buries them.
     directory = os.path.dirname(os.path.abspath(path)) or '.'
     name = os.path.basename(path)
     flags = ['-interaction=nonstopmode', '-file-line-error']
+
+    # Read from the document rather than the metadata, so that a deck
+    # pulling minted in through '@preamble' is covered too -- and so that
+    # nothing is granted to a document that never asked for it.
+    if uses_minted(path) and minted_needs_shell_escape():
+        flags.append('-shell-escape')
 
     if shutil.which('latexmk'):
         # -silent keeps its running commentary (and the harmless note about
@@ -841,6 +949,21 @@ authors can be handled the same way.
     return [value]
 
 
+def highlighter_of(meta):
+    """highlighter_of(dict) -> str
+
+Which of HIGHLIGHTERS the deck asked for, 'listings' by default.  An
+unknown name is reported and falls back, rather than quietly producing a
+document that will not compile.
+"""
+    name = str((meta or {}).get('highlighter') or 'listings').strip().lower()
+    if name not in HIGHLIGHTERS:
+        print("%s: warning: unknown highlighter '%s'; known: %s"
+              % (PROG, name, ', '.join(HIGHLIGHTERS)), file=sys.stderr)
+        return 'listings'
+    return name
+
+
 def as_bool(value, default=False):
     """as_bool(object, bool) -> bool
 
@@ -953,6 +1076,11 @@ metadata block.
               % (PROG, style, ', '.join(sorted(LINK_STYLES))), file=sys.stderr)
         style = 'underline'
     variables['linkstyle'] = LINK_STYLES[style]
+
+    # The package is loaded only for the deck that asked, since minted
+    # shells out to pygmentize on every run of the engine.
+    variables['minted'] = (MINTED_PREAMBLE
+                           if highlighter_of(meta) == 'minted' else '')
 
     variables['slides'] = slides
     return variables
@@ -1905,6 +2033,9 @@ happens inside `inline code', where the text is meant to be literal.
     #: the document's metadata, for '@if'; set by make_markdown()
     metadata = {}
 
+    #: 'listings' or 'minted'; set by make_markdown()
+    highlighter = 'listings'
+
     #: the last character rendered, so that a quote opening a span of
     #: emphasis can still tell what came before it
     _previous = ''
@@ -2176,6 +2307,12 @@ standing for every level below those named.
         options = []
         name = (language or '').strip().lower()
 
+        # A fence tagged 'lstlisting' is listings input whatever the deck
+        # chose: it is written for that package's escapes, and minted has
+        # no reading of them.
+        if self.highlighter == 'minted' and name not in RAW_LISTING_LANGUAGES:
+            return self.render_minted(name, code)
+
         if name in RAW_LISTING_LANGUAGES:
             # the author is writing listings input, so let the escapes work
             if self.escapechar:
@@ -2191,6 +2328,19 @@ standing for every level below those named.
         if not code.endswith('\n'):
             code += '\n'
         return '%s\n%s\\end{lstlisting}\n' % (head, code)
+
+    def render_minted(self, name, code):
+        """render_minted(str, str) -> str
+
+The same block as a minted environment.  The fence word goes to Pygments
+as written -- its aliases are the ones a deck author already knows, 'cpp'
+and 'c++' alike -- and a fence with no word becomes plain text rather than
+nothing, which minted will not take.
+"""
+        if not code.endswith('\n'):
+            code += '\n'
+        return '\\begin{minted}{%s}\n%s\\end{minted}\n' % (
+            name or MINTED_DEFAULT_LANGUAGE, code)
 
     def render_heading(self, element):
         # A heading below the slide level.  TODO: \begin{block}{...}, which
@@ -2453,7 +2603,8 @@ because link colours are a property of the document, not of the run.
                      'highlight': str(meta.get('highlight')
                                       or DEFAULT_HIGHLIGHT),
                      'smart': as_bool(meta.get('smart'), True),
-                     'metadata': meta})
+                     'metadata': meta,
+                     'highlighter': highlighter_of(meta)})
     return BeamerMarkdown(renderer=renderer,
                           extensions=[markdown_extension()])
 

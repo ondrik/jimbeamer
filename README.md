@@ -229,6 +229,7 @@ toc:      true
 | `header-includes` | empty | LaTeX injected last in the preamble, so it overrides everything above; a `@preamble` block in the deck is usually the easier place to write it |
 | `colorlinks` | `true` | colour the link text |
 | `linkstyle` | `underline` | how a link is marked besides its colour: `underline`, `bold` or `plain` |
+| `highlighter` | `listings` | what a fenced block becomes: `listings` or `minted` |
 | `urlcolor` | `blue` | colour for `\href` and `\url` |
 | `linkcolor` | whatever `urlcolor` is | colour for internal `[text](#label)` links |
 | `smart` | `true` | turn `"` into typographic quotes |
@@ -601,6 +602,22 @@ Tagging a fence as `lstlisting` (or `listings`) means "this is listings
 input": no language is set, and `escapechar=@` is added instead, so `@$x_1$@`
 inside the listing typesets as maths. A language fence never gets an
 escapechar, since a C snippet is free to contain an `@`.
+
+**`highlighter: minted`** sets the code through Pygments instead, which is
+where the colour comes from — listings is monochrome with bold keywords. The
+fence word goes to Pygments as written, so its aliases (`cpp`, `c++`, `py`)
+are the ones you already use, and a fence with no word becomes `text`.
+
+It costs a dependency and a permission. minted 2 shells out to `pygmentize`,
+which the engine will not do unless it is given `-shell-escape`; minted 3
+runs `latexminted` instead, which needs no permission where the installation
+lists it among the commands restricted shell escape may run — TeX Live added
+it in 2025. `--pdf` works out which case it is and passes the flag only when
+it is needed, reading the document rather than the metadata, so a deck that
+pulls minted in through `@preamble` is covered too.
+
+A fence tagged ` ```lstlisting ` stays listings whatever the deck chose: it
+is written for that package's escapes, which minted has no reading of.
 
 Every listing is governed by the `\lstset` in the template, which is emitted
 before your own preamble so that an `\lstset` of yours wins. Line numbering
