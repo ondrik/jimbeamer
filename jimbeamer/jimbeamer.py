@@ -284,6 +284,10 @@ BRACKET_TITLE_DIRECTIVES = frozenset("""
 COMMAND_DIRECTIVES = frozenset(('note', 'alert', 'only', 'uncover', 'visible',
                                 'invisible'))
 
+# The line that divides a conditional's two branches.  Alone on its line,
+# like '@end', since it is a marker rather than a directive with contents.
+DIRECTIVE_ELSE_RE = re.compile(r'[ \t]{0,3}@else[ \t]*$', re.MULTILINE)
+
 # Directives that keep or drop what they hold, according to a metadata
 # variable: '@if handout' keeps it when handout is set, '@ifnot handout'
 # when it is not.  The value is read the way every other flag is, so
@@ -1747,6 +1751,8 @@ anything still open inside it, the way </ul> does in HTML.
     def match(cls, source):
         if source.expect_re(DIRECTIVE_END_RE):
             return None                     # StrayDirectiveEnd's business
+        if source.expect_re(DIRECTIVE_ELSE_RE):
+            return None                     # DirectiveElse's
         return source.expect_re(DIRECTIVE_RE)
 
     @classmethod
@@ -1840,6 +1846,36 @@ parse into the next.
     return source.context.directive_names
 
 
+class DirectiveElse(marko.block.BlockElement):
+    """The '@else' dividing the two branches of a conditional.
+
+Claimed as a block of its own rather than handled while parsing the
+directive, so that it lands among the children and the renderer can split
+them on it.  Which also puts it at the right depth for free: an '@else'
+inside a nested '@if' is that one's, since it is that one's child.
+
+Outside a conditional it is a mistake, and render_directive_else() says
+so -- it reaches the renderer only when nothing split on it.
+"""
+
+    priority = 9
+    breaks_paragraph = True
+
+    def __init__(self, text):
+        self.text = text
+        self.children = []
+
+    @classmethod
+    def match(cls, source):
+        return source.expect_re(DIRECTIVE_ELSE_RE)
+
+    @classmethod
+    def parse(cls, source):
+        line = source.next_line()
+        source.consume()
+        return line.strip()
+
+
 class MismatchedDirectiveEnd(marko.block.BlockElement):
     """An '@end name' naming something that is not open.
 
@@ -1888,7 +1924,7 @@ The elements above, as an extension to register with marko.
                   Span, Highlight, RawLatexInline,
                   RawLatexEnvironment, RawLatexMacroLine, SlideMetadata,
                   List, ListItem, Paragraph,
-                  Directive, StrayDirectiveEnd])
+                  Directive, DirectiveElse, StrayDirectiveEnd])
 
 
 ###########################################
@@ -2383,9 +2419,19 @@ inside a dropped branch says nothing either.
             return ''
 
         wanted = CONDITIONAL_DIRECTIVES[element.name]
-        if as_bool(self.metadata.get(variable), False) is not wanted:
-            return ''
-        return self.render_children(element)
+        taken = as_bool(self.metadata.get(variable), False) is wanted
+
+        # '@else' divides the children; without one the second branch is
+        # empty, which is what '@if' alone has always meant.
+        kept, other = element.children, []
+        for index, child in enumerate(element.children):
+            if isinstance(child, DirectiveElse):
+                kept, other = element.children[:index], \
+                    element.children[index + 1:]
+                break
+
+        blocks = kept if taken else other
+        return ''.join(self.render(block) for block in blocks)
 
     def directive_arguments(self, element):
         """directive_arguments(Directive) -> str"""
@@ -2403,6 +2449,13 @@ inside a dropped branch says nothing either.
         if element.name in BRACKET_TITLE_DIRECTIVES:
             return '[%s]' % title
         return '{%s}' % title
+
+    def render_directive_else(self, element):
+        # Only an '@else' that divided nothing gets here: a conditional
+        # renders one of its branches and never the marker between them.
+        print("%s: warning: '@else' outside '@if' or '@ifnot'" % PROG,
+              file=sys.stderr)
+        return ''
 
     def render_stray_directive_end(self, element):
         print("%s: warning: '%s' with nothing open" % (PROG, element.text),

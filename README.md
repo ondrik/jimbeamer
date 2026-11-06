@@ -558,6 +558,23 @@ The derivation in full, since nobody is reading this off a screen.
 @end ifnot
 ```
 
+`@else` divides the two branches, so the variable need not be named twice:
+
+```markdown
+@if handout
+The derivation in full.
+@else
+* the short version
+\pausex
+* built up live
+@end if
+```
+
+It belongs to the conditional it is written in, so an `@else` inside a
+nested `@if` is that one's. One outside any conditional is reported on
+stderr and dropped. A conditional without an `@else` has an empty second
+branch, which is what `@if` alone has always meant.
+
 Any variable will do, not just `handout`, and the value is read the way
 every other flag is: `false`, `no`, `off`, `0` and empty are not set, and a
 variable that was never given is not set either. `-V handout=true` therefore

@@ -1842,6 +1842,54 @@ def test_conditional_holds_markdown_and_nests(convert):
     assert '\\textbf{bullet}' in result
 
 
+@pytest.mark.parametrize('name, handout, expected', [
+    pytest.param('if', 'true', 'branch-alpha', id='if-taken'),
+    pytest.param('if', 'false', 'branch-beta', id='if-else'),
+    pytest.param('ifnot', 'true', 'branch-beta', id='ifnot-else'),
+    pytest.param('ifnot', 'false', 'branch-alpha', id='ifnot-taken'),
+])
+def test_else_divides_the_two_branches(convert, name, handout, expected):
+    """So that writing both ways round does not mean naming the variable
+twice, once in an '@if' and again in an '@ifnot' beneath it."""
+    result = convert('---\ntitle: T\nhandout: %s\n---\n\n# S\n\n'
+                     '@%s handout\nbranch-alpha\n@else\nbranch-beta\n'
+                     '@end %s\n' % (handout, name, name))
+    assert expected in result
+    other = ('branch-beta' if expected == 'branch-alpha'
+             else 'branch-alpha')
+    assert other not in result
+
+
+def test_a_conditional_without_an_else_still_has_an_empty_branch(convert):
+    """Which is what '@if' alone has always meant, and must go on meaning."""
+    result = convert('---\ntitle: T\n---\n\n# S\n\n'
+                     '@if handout\nvisible-branch\n@end if\n')
+    assert 'visible-branch' not in result
+
+
+def test_else_belongs_to_the_conditional_it_is_inside(convert):
+    """It is claimed as a block, so it lands among that conditional's own
+children -- an '@else' in a nested '@if' is the nested one's, and the
+depth comes out right without anything counting it."""
+    result = convert('---\ntitle: T\nhandout: true\n---\n\n# S\n\n'
+                     '@if handout\nouter-taken\n'
+                     '@if draft\ninner-draft\n@else\ninner-final\n@end if\n'
+                     '@else\nouter-other\n@end if\n')
+    assert 'outer-taken' in result
+    assert 'inner-final' in result       # draft is not set
+    assert 'inner-draft' not in result
+    assert 'outer-other' not in result
+
+
+def test_a_stray_else_is_reported(convert, capsys):
+    """Only an '@else' that divided nothing reaches the renderer: a
+conditional renders one branch and never the marker between them."""
+    result = convert('---\ntitle: T\n---\n\n# S\n\ntext\n@else\n')
+    assert "'@else' outside" in capsys.readouterr().err
+    assert '@else' not in result
+    assert '\\begin{else}' not in result
+
+
 def test_conditional_with_no_variable_is_reported(convert, capsys):
     """Naming nothing cannot be a question, so it is a mistake."""
     result = convert('---\ntitle: T\n---\n\n# S\n\n@if\nx\n@end if\n')
