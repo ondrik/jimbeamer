@@ -690,6 +690,74 @@ dropping one silently breaks every deck that used it."""
 # indentation, which is not syntax here
 ###########################################
 
+@pytest.mark.parametrize('indent, id_', [
+    pytest.param('', 'top-level'),
+    pytest.param('    ', 'four-spaces'),
+    pytest.param('        ', 'eight-spaces'),
+])
+def test_a_fence_is_a_fence_at_any_indent(render, indent, id_):
+    """marko caps the opener at three spaces, and the closer again inside
+parse(), which is CommonMark's rule and the other half of the one this
+format dropped.  With the indented code block gone and the cap left,
+a fence lined up under a second-level bullet was neither: the lines fell
+through to a paragraph and the backticks became an inline code span, so
+the listing came out as '\\texttt{C int x; }' with the newlines gone and
+nothing said."""
+    body = render('# S\n\n%s```C\n%sint x;\n%s```\n' % (indent, indent, indent))
+    assert '\\begin{lstlisting}[language={C}]\nint x;\n\\end{lstlisting}' in body
+    assert 'texttt' not in body
+
+
+def test_an_indented_fence_closes_where_it_says(render):
+    """The closing fence is capped separately, in parse() rather than in a
+pattern, so the opener alone was not enough: the listing ran past its own
+closer and swallowed what followed."""
+    body = render('# S\n\n@column 0.5\n\n    ```C\n    int x;\n    ```\n\n'
+                  '@end column\n')
+    assert '\\begin{lstlisting}[language={C}]\nint x;\n\\end{lstlisting}' in body
+    assert '@end column' not in body
+
+
+def test_indented_prose_is_reported_once_it_stops_being_a_listing(render,
+                                                                  capsys):
+    """Refusing silently is a trap on a deck written before this: what was
+a listing becomes prose, and prose reaches LaTeX untouched, so '&' and
+'_' stop the build while '--' and a pair of quotes change on the slide
+without a word."""
+    render('# S\n\nThe numbers:\n\n    name    time & memory\n')
+    assert 'indented text is prose' in capsys.readouterr().err
+
+
+def test_an_ordinary_list_continuation_is_not_reported(render, capsys):
+    """The warning has to fire where the meaning changed and nowhere
+else, or a deck full of indented bullets drowns in it."""
+    render('# S\n\n* an item\n  continued on the next line\n')
+    assert capsys.readouterr().err == ''
+
+
+@pytest.mark.parametrize('indent', ['', '  ', '    ', '\t'])
+def test_end_preamble_and_else_take_any_indent_too(convert, indent):
+    """Three of the four patterns loosened with DIRECTIVE_RE had no test
+of their own, so restoring the cap on any of them left the suite green."""
+    result = convert('---\ntitle: T\nhandout: true\n---\n\n# S\n\n'
+                     '%s@preamble\n%s\\usepackage{tikz}\n%s@end preamble\n\n'
+                     '%s@if handout\n%sbranch-alpha\n%s@else\n%sbranch-beta\n'
+                     '%s@end if\n' % ((indent,) * 8))
+    assert '\\usepackage{tikz}' in result
+    assert 'branch-alpha' in result
+    assert 'branch-beta' not in result
+
+
+def test_a_percent_comment_in_the_metadata_is_anchored(convert):
+    """Blind to indentation it reached inside values: a quoted title
+continued onto a line beginning '%' lost that line, and what was left was
+an unterminated string and a hard exit."""
+    result = convert('---\ntitle: "Coverage went from 30\n  %-ish to 95%"\n'
+                     '% a real comment\n---\n\n# S\n\nx\n')
+    assert '%-ish to 95%' in result
+    assert 'a real comment' not in result
+
+
 def test_a_percent_line_survives_an_indented_fence(render):
     """The comment stripper has to see a fence wherever the converter
 does.  Its pattern was capped at three spaces -- right while four made an

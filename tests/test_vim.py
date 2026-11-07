@@ -79,6 +79,10 @@ inline \\(x_3\\) and a citation \\[Clarke 81\\] mid-sentence
     ```C
     int indented;
     ```
+    @preamble
+    \\usepackage{tikz}
+    plain words in a preamble
+    @end preamble
     @minipage 6cm
     \\input{figs/x}
     @end minipage
@@ -314,7 +318,8 @@ file, which is how it drifted behind twice before."""
 @vim_needed
 @pytest.mark.parametrize('needle, group', [
     pytest.param('int indented', 'jimbeamerCodeFence', id='fence'),
-    pytest.param('\\input{figs/x}', 'jimbeamerLatexMacro', id='preamble-body'),
+    pytest.param('plain words in a preamble', 'jimbeamerPreamble',
+                 id='preamble-body'),
     pytest.param('(a) lettered under', 'jimbeamerListMarker', id='nested-marker'),
     pytest.param('x^2', 'jimbeamerMathBracket', id='display-maths'),
 ])
@@ -373,6 +378,37 @@ def test_both_metadata_comments_are_comments(tmp_path, needle):
     probed = run_vim(tmp_path, '---\ntitle: T\n<!--lang: en-->\n% a note\n'
                                '---\n\n# S\n\nx\n')
     assert 'jimbeamerMetaComment' in groups_on(probed, needle)
+
+
+@vim_needed
+def test_a_deck_whose_directive_is_indented_is_still_a_deck(tmp_path):
+    """ftdetect decides by content, and it capped a directive at three
+spaces as the syntax file did -- so a deck written in the style this
+format now allows, with everything lined up under a bullet, was not
+recognised as one at all."""
+    source = tmp_path / 'deep.md'
+    source.write_text('# S\n\n* outer\n  * inner\n\n    @minipage 6cm\n'
+                      '    \\input{figs/x}\n    @end minipage\n',
+                      encoding='utf-8')
+    out = tmp_path / 'ft.txt'
+    subprocess.run(
+        [VIM, '-N', '-u', 'NONE', '-i', 'NONE',
+         '--cmd', 'set runtimepath^=%s' % VIM_DIR, '--cmd', 'filetype on',
+         '-c', "call writefile([&filetype], '%s')" % out,
+         '-c', 'quit!', str(source)],
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL, timeout=60, check=False)
+    assert out.read_text(encoding='utf-8').strip() == 'jimbeamer'
+
+
+@vim_needed
+def test_the_ftplugin_teaches_gq_what_a_marker_is(buffer_options):
+    """Indentation carries meaning now, and re-wrapping without these
+flattens it.  'n' keeps a numbered list's hanging indent, and the pattern
+says what a marker looks like here -- '(a)', 'a)', '(iv)' and '2.' as
+well as the bullets vim already knows."""
+    assert 'n' in buffer_options['formatoptions']
+    assert '[ivxlcdm]' in buffer_options['formatlistpat']
 
 
 def test_the_syntax_file_knows_every_slide_metadata_key(jimbeamer):
@@ -444,8 +480,9 @@ def buffer_options(tmp_path_factory):
          '--cmd', 'set runtimepath^=%s' % VIM_DIR,
          '--cmd', 'filetype plugin on',
          '-c', "call writefile([json_encode({'filetype': &filetype, "
-               "'commentstring': &commentstring, 'comments': &comments})], "
-               "'%s')" % out,
+               "'commentstring': &commentstring, 'comments': &comments, "
+               "'formatoptions': &formatoptions, "
+               "'formatlistpat': &formatlistpat})], '%s')" % out,
          '-c', 'quit!', str(work / 'deck.md')],
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL, timeout=60, check=False)
