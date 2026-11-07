@@ -742,8 +742,9 @@ LaTeX's own spellings work too — `\(x_1\)` and `\[y_2\]` — and come back as
 written, so the converter's output is valid input to it.
 
 **`\[...\]` is display maths when it has the line to itself**, which is where
-display maths goes anyway. Up to three spaces may precede it (four would make
-a code block) and only blanks may follow it. Anywhere else `\[` is what it
+display maths goes anyway. Any indentation may precede it — it is measured
+from the block the line sits in, so a formula lined up under a bullet counts
+— and only blanks may follow it. Anywhere else `\[` is what it
 looks like, Markdown's escape for a literal bracket, so `a citation
 \[Clarke 81\] mid-sentence` prints the brackets — and so does a bullet or a
 paragraph that *opens* with one, since starting the line is not having it.
@@ -837,8 +838,8 @@ A `%` part-way along a line is left alone and passed through to LaTeX, where
 it still comments out the rest of that line. Write `\%` for a literal percent
 sign. A leading `%` is kept inside a **fenced** code block and inside a
 hand-written verbatim environment, where it may be Matlab or a `printf`
-format. Fencing is the only way to say "this is code", so it is also the
-only place a `%` line survives.
+format — those two are where it survives, and fencing is the only way to
+say "this is code".
 
 A `%` line works in the metadata too, in the document's block and in a
 slide's own, where it is the way to switch a setting off without deleting

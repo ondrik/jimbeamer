@@ -395,8 +395,13 @@ FRONTMATTER_RE = re.compile(r"""\A---[ \t]*\r?\n              # opening fence
 # '%' line, because that is this format's own comment everywhere else and
 # a deck should not have to remember where it stops working.  ('%' opens a
 # YAML directive, so it cannot simply be left to the parser.)
+# The '%' half is anchored to column 0, where a YAML directive would be,
+# and the HTML half is not.  Blind to indentation it reached inside values:
+# a quoted title continued onto a line beginning '%' lost that line, and
+# what was left was an unterminated string and 'cannot parse the metadata
+# block'.  A '%' that deep is a per cent sign in somebody's sentence.
 YAML_COMMENT_RE = re.compile(
-    r'^[ \t]*(?:<!--.*?-->|%.*)[ \t]*$\n?', re.MULTILINE)
+    r'(?m)^(?:[ \t]*<!--.*?-->[ \t]*|%.*)$\n?')
 
 
 ###########################################
@@ -1216,15 +1221,15 @@ CommonMark's escape for a literal bracket, and claiming it everywhere meant
 a bracket could not be escaped at all: 'a citation \\[Smith 04\\]' came out
 as a centred equation.  Display maths occupies its own line -- LaTeX breaks
 the paragraph for it either way -- so that is what is required: nothing
-before the opener but up to three spaces (four would be a code block), and
-nothing after the closer but blanks.  A line that merely *starts* with one
+before the opener but indentation, which is measured from the block the
+line sits in, and nothing after the closer but blanks.  A line that merely *starts* with one
 is not enough, or '\\[Clarke, Emerson 81\\] proved it' at the head of a
 bullet would be an equation, and that is the shape a citation takes.
 """
 
     priority = 9
     pattern = re.compile(
-        r'(?m)^[ \t]{0,3}(?<!\\)\\\[([\s\S]+?)(?<!\\)\\\][ \t]*$')
+        r'(?m)^[ \t]*(?<!\\)\\\[([\s\S]+?)(?<!\\)\\\][ \t]*$')
     parse_children = False
 
 
@@ -1395,6 +1400,60 @@ punctuation": '(a)' and 'a)' are two lists, not one.
         return True
 
 
+class FencedCode(marko.block.FencedCode):
+    """A fence, at any indentation.
+
+marko caps the opener at three spaces, which is CommonMark's rule and the
+other half of the one this format dropped.  With the indented code block
+gone and the cap left in place, a fence lined up under a second-level
+bullet -- four columns in -- was neither: the lines fell through to a
+paragraph and the backticks became an inline code span, so
+
+    @column 0.5
+
+        ```C
+        int x;
+        ```
+
+came out as '\\texttt{C int x; }'.  The listing was destroyed, the
+newlines with it, and nothing said so.
+
+Only the pattern changes.  The captured indent is what marko strips from
+the body, so capturing all of it is also what keeps the code aligned.
+"""
+
+    override = True
+    pattern = re.compile(r'( *)(`{3,}|~{3,})[^\n\S]*(.*?)$', re.MULTILINE)
+
+    #: the closing fence, which marko caps in parse() rather than in a
+    #: pattern of its own, so the body is copied from it to change the one
+    #: place that matters.  Checked against marko 2.2.5.
+    close = re.compile(r' *(~+|`+)[^\n\S]*$', re.MULTILINE)
+
+    @classmethod
+    def parse(cls, source):
+        source.next_line()
+        source.consume()
+        lines = []
+        info = source.context.code_info
+        while not source.exhausted:
+            line = source.next_line()
+            if line is None:
+                break
+            source.consume()
+            end = cls.close.match(line)
+            if end and info.leading in end.group(1):
+                break
+
+            prefix_len = source.match_prefix(info.prefix, line)
+            if prefix_len >= 0:
+                line = line[prefix_len:]
+            else:
+                line = line.lstrip()
+            lines.append(line)
+        return info.lang, info.extra, ''.join(lines)
+
+
 class CodeBlock(marko.block.CodeBlock):
     """CommonMark's indented code block, which this format does not have.
 
@@ -1413,6 +1472,15 @@ them.
 
     @classmethod
     def match(cls, source):
+        # Refusing silently would be a trap on an old deck: what was a
+        # listing becomes prose, and prose is passed through to LaTeX
+        # untouched, so '&' and '_' in it stop the build and '--' and a
+        # pair of quotes come out as an en-dash and typographic quotes
+        # without a word.  Say so where the meaning changed -- which is
+        # exactly where marko would have matched.
+        if super().match(source):
+            print('%s: warning: indented text is prose, not a listing;'
+                  ' fence it to keep it code' % PROG, file=sys.stderr)
         return False
 
 
@@ -1960,7 +2028,7 @@ The elements above, as an extension to register with marko.
         elements=[MathDisplay, LatexMathDisplay, LatexMath, Math, Graphic,
                   Span, Highlight, RawLatexInline,
                   RawLatexEnvironment, RawLatexMacroLine, SlideMetadata,
-                  List, ListItem, Paragraph, CodeBlock,
+                  List, ListItem, Paragraph, CodeBlock, FencedCode,
                   Directive, DirectiveElse, StrayDirectiveEnd])
 
 
