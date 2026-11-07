@@ -690,6 +690,44 @@ dropping one silently breaks every deck that used it."""
 # indentation, which is not syntax here
 ###########################################
 
+def test_a_percent_line_survives_an_indented_fence(render):
+    """The comment stripper has to see a fence wherever the converter
+does.  Its pattern was capped at three spaces -- right while four made an
+indented code block, where a line of backticks is literal text -- so a
+fence lined up under a bullet, four columns in, was invisible to it and
+the '%' lines of the listing were deleted as comments.  marko measured
+the indent relative to the item and emitted the listing anyway, one line
+short, silently."""
+    body = render('# S\n\n* an item\n    ```C\n    int x;\n'
+                  '    % still code\n    ```\n')
+    assert '% still code' in body
+
+
+def test_a_percent_line_is_still_a_comment_outside_a_fence(render):
+    """The other half: loosening the fence must not make '%' content
+everywhere."""
+    body = render('# S\n\n* an item\n    % a comment, not code\n')
+    assert 'a comment, not code' not in body
+
+
+def test_a_percent_line_survives_an_indented_verbatim(render):
+    """VERBATIM_BEGIN_RE never had the cap, so this already worked --
+pinned because the two belong together and a future tidy-up might give
+them one pattern."""
+    body = render('# S\n\n* an item\n    \\begin{verbatim}\n'
+                  '    % still content\n    \\end{verbatim}\n')
+    assert '% still content' in body
+
+
+def test_the_code_fence_pattern_is_defined_once(jimbeamer):
+    """It was defined twice, the second more strictly than the first, and
+the redefinition won everywhere -- including for the ':::' it was not
+written for.  Two names, one of them invisible, is how issue #12 hid."""
+    import inspect
+    source = inspect.getsource(jimbeamer)
+    assert source.count('CODE_FENCE_RE = re.compile') == 1
+
+
 def test_an_indented_block_is_not_a_listing(render):
     """CommonMark makes four spaces a code block.  A deck indents to line
 something up with the list item it belongs to, so that rule turned a

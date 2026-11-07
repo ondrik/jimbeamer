@@ -193,7 +193,14 @@ LISTINGS_LANGUAGES = {
 # its own it closes one:  '::: { .column width=30% }' ... ':::'
 DIV_FENCE_RE = re.compile(r'(:{3,})[ \t]*(.*?)[ \t]*$', re.MULTILINE)
 
-# A code fence, so that a ':::' inside a listing is not mistaken for a div.
+# A code fence: so that a ':::' inside a listing is not mistaken for a div,
+# and so that the comment stripper knows where a leading '%' is content.
+#
+# Any indent at all.  It was capped at three for as long as four made an
+# indented code block, where a line of backticks is literal text rather
+# than a fence -- but a fence lined up under a bullet is four columns in,
+# and the stripper then deleted the '%' lines of a listing the converter
+# went on to emit.  A line of code vanished and nothing said so.
 CODE_FENCE_RE = re.compile(r'[ \t]*(`{3,}|~{3,})')
 
 # The classes of a bracketed span, '[text]{.hlrd .bf}'.  Each becomes a
@@ -213,9 +220,10 @@ QUOTE_OPENS_AFTER = set(' \t\n([{<' '‘“–—-/')
 # since the line then starts with a backslash.
 COMMENT_LINE_RE = re.compile(r'[ \t]*%')
 
-# A fenced code block, and a verbatim LaTeX environment: the two places where
-# a leading '%' is content rather than a comment.
-CODE_FENCE_RE = re.compile(r'[ \t]{0,3}(`{3,}|~{3,})')
+# A fenced code block, and a verbatim LaTeX environment: the two places
+# where a leading '%' is content rather than a comment.  The fence is
+# CODE_FENCE_RE above -- it used to be redefined here, more strictly, and
+# the redefinition is what issue #12 was.
 # Environments whose contents are taken literally.  A '%' line inside one is
 # content, and so is a '# ' line -- a shell or Python comment, not a heading --
 # which is why RawLatexEnvironment does not let a heading close one of these.
