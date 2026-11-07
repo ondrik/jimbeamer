@@ -246,10 +246,14 @@ IMAGE_LENGTHS = {'width': 'textwidth', 'height': 'textheight'}
 
 # An environment directive, '@column 0.3' ... '@end column'.  The contents
 # are Markdown; write \begin{...} instead when they should be left alone.
-DIRECTIVE_RE = re.compile(r'[ \t]{0,3}@(?P<name>[A-Za-z][-\w]*)(?P<args>.*)$',
+# Indented as far as it likes: four spaces used to make a code block, so
+# the cap was CommonMark's rather than ours, and with that rule gone there
+# is nothing left for it to protect.  A directive lines up with the list
+# item or the column it belongs to, which is where an author puts it.
+DIRECTIVE_RE = re.compile(r'[ \t]*@(?P<name>[A-Za-z][-\w]*)(?P<args>.*)$',
                           re.MULTILINE)
 DIRECTIVE_END_RE = re.compile(
-    r'[ \t]{0,3}@end(?:[ \t]+(?P<name>[A-Za-z][-\w]*))?[ \t]*$', re.MULTILINE)
+    r'[ \t]*@end(?:[ \t]+(?P<name>[A-Za-z][-\w]*))?[ \t]*$', re.MULTILINE)
 
 # A beamer overlay specification, '<2->', allowed in front of the arguments.
 OVERLAY_RE = re.compile(r'(<[^>\n]*>)[ \t]*')
@@ -261,7 +265,7 @@ HEADING_LINE_RE = re.compile(r'[ \t]{0,3}#{1,6}(?:[ \t]|$)')
 # '@preamble', which opens a block of LaTeX for the preamble rather than an
 # environment on a slide.  Taken out of the source before marko runs, so
 # that what is between the markers is nobody's Markdown.
-PREAMBLE_OPEN_RE = re.compile(r'[ \t]{0,3}@preamble[ \t]*$')
+PREAMBLE_OPEN_RE = re.compile(r'[ \t]*@preamble[ \t]*$')
 
 # A bare number is a fraction of \textwidth, so '@column 0.3' is enough.
 BARE_NUMBER_RE = re.compile(r'\d*\.?\d+$')
@@ -286,7 +290,7 @@ COMMAND_DIRECTIVES = frozenset(('note', 'alert', 'only', 'uncover', 'visible',
 
 # The line that divides a conditional's two branches.  Alone on its line,
 # like '@end', since it is a marker rather than a directive with contents.
-DIRECTIVE_ELSE_RE = re.compile(r'[ \t]{0,3}@else[ \t]*$', re.MULTILINE)
+DIRECTIVE_ELSE_RE = re.compile(r'[ \t]*@else[ \t]*$', re.MULTILINE)
 
 # Directives that keep or drop what they hold, according to a metadata
 # variable: '@if handout' keeps it when handout is set, '@ifnot handout'
@@ -378,9 +382,13 @@ FRONTMATTER_RE = re.compile(r"""\A---[ \t]*\r?\n              # opening fence
                                 ^(?:---|\.\.\.)[ \t]*\r?$\r?\n?  # closing fence
                              """, re.DOTALL | re.MULTILINE | re.VERBOSE)
 
-# HTML comments are legal in Markdown but not in YAML, and they are a handy
-# way to disable a metadata line, e.g. '<!--lang: en-->'.
-YAML_COMMENT_RE = re.compile(r'^[ \t]*<!--.*?-->[ \t]*$\n?', re.MULTILINE)
+# Two ways to disable a metadata line, neither of which YAML would take.
+# An HTML comment, '<!--lang: en-->', because it is legal Markdown; and a
+# '%' line, because that is this format's own comment everywhere else and
+# a deck should not have to remember where it stops working.  ('%' opens a
+# YAML directive, so it cannot simply be left to the parser.)
+YAML_COMMENT_RE = re.compile(
+    r'^[ \t]*(?:<!--.*?-->|%.*)[ \t]*$\n?', re.MULTILINE)
 
 
 ###########################################
@@ -1379,6 +1387,27 @@ punctuation": '(a)' and 'a)' are two lists, not one.
         return True
 
 
+class CodeBlock(marko.block.CodeBlock):
+    """CommonMark's indented code block, which this format does not have.
+
+Four spaces of indent meaning "listing" is a rule written for prose with
+code in it, and a deck is the other way round: what is indented here is a
+directive or raw LaTeX inside a list item, and turning it into a listing
+was silent and wrong.  A fence says it instead, which is the one spelling
+left.
+
+Refusing to match is all it takes -- the lines then belong to whatever
+block context they are in, which is what the author meant by indenting
+them.
+"""
+
+    override = True
+
+    @classmethod
+    def match(cls, source):
+        return False
+
+
 class Paragraph(marko.block.Paragraph):
     """A paragraph, which a list may interrupt.
 
@@ -1481,7 +1510,7 @@ happens to parse as a mapping from being read as settings -- a page about
 YAML, say, whose lines really are 'key: value'.
 """
     try:
-        meta = yaml.safe_load(text)
+        meta = yaml.safe_load(YAML_COMMENT_RE.sub('', text))
     except yaml.YAMLError:
         return None
 
@@ -1923,7 +1952,7 @@ The elements above, as an extension to register with marko.
         elements=[MathDisplay, LatexMathDisplay, LatexMath, Math, Graphic,
                   Span, Highlight, RawLatexInline,
                   RawLatexEnvironment, RawLatexMacroLine, SlideMetadata,
-                  List, ListItem, Paragraph,
+                  List, ListItem, Paragraph, CodeBlock,
                   Directive, DirectiveElse, StrayDirectiveEnd])
 
 

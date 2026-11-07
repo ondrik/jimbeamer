@@ -837,9 +837,14 @@ A `%` part-way along a line is left alone and passed through to LaTeX, where
 it still comments out the rest of that line. Write `\%` for a literal percent
 sign. A leading `%` is kept inside a **fenced** code block and inside a
 hand-written verbatim environment, where it may be Matlab or a `printf`
-format. A four-space-indented code block is *not* protected — its `%` lines
-are deleted like any other comment, silently — so fence any snippet whose own
-comments start with `%`.
+format. Fencing is the only way to say "this is code", so it is also the
+only place a `%` line survives.
+
+A `%` line works in the metadata too, in the document's block and in a
+slide's own, where it is the way to switch a setting off without deleting
+it. YAML has no comment this format could borrow — `%` opens a directive
+there — so the line is taken out before the YAML is read, exactly as an
+`<!--html comment-->` already was.
 
 `<!-- ... -->` also works and is dropped. It is the one for a block: several
 lines, inline mid-sentence, or wrapped around a whole slide, which is how you
@@ -958,8 +963,9 @@ The ones that have actually cost time:
   A verbatim environment (`lstlisting`, `verbatim`, ...) is the exception: a
   `# ` line inside one is a shell or Python comment, so only the matching
   `\end` closes it, and an unterminated one does still run on.
-* **A four-space indent makes a code block**, so an indented `@block` or
-  `\begin{...}` line is a listing instead of what you meant.
+* **Indentation means nothing here.** A code block is a fence and nothing
+  else, so an indented `@block` or `\begin{...}` is still what it says it
+  is — line it up with the list item or the column it belongs to.
 
 
 ## What it does not do

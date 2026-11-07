@@ -686,6 +686,74 @@ dropping one silently breaks every deck that used it."""
     assert '\\newcommand{\\%s}' % macro in template
 
 
+###########################################
+# indentation, which is not syntax here
+###########################################
+
+def test_an_indented_block_is_not_a_listing(render):
+    """CommonMark makes four spaces a code block.  A deck indents to line
+something up with the list item it belongs to, so that rule turned a
+directive or a run of raw LaTeX into a listing, silently."""
+    body = render('# S\n\nprose\n\n    indented, not code\n')
+    assert 'lstlisting' not in body
+    assert 'indented, not code' in body
+
+
+def test_a_fence_is_still_a_listing(render):
+    """Which is now the only way to say it."""
+    body = render('# S\n\n```C\nint x;\n```\n')
+    assert '\\begin{lstlisting}[language={C}]\nint x;' in body
+
+
+@pytest.mark.parametrize('indent', ['', '  ', '    ', '\t'])
+def test_a_directive_may_be_indented(render, indent):
+    """It lines up with the list item or the column it belongs to.  Four
+spaces used to make it a listing; nothing caps it now."""
+    body = render('# S\n\n%s@block B\n%sx\n%s@end block\n'
+                  % (indent, indent, indent))
+    assert '\\begin{block}{B}' in body
+    assert '\\end{block}' in body
+
+
+def test_an_indented_directive_inside_a_nested_item(render):
+    """The case that found this: a figure lined up under a second-level
+bullet came out as a listing."""
+    body = render(doc("""
+        # S
+
+        * outer
+          * inner
+
+            @minipage 6cm
+            \\input{figs/x}
+            @end minipage
+    """))
+    assert '\\begin{minipage}{6cm}' in body
+    assert 'lstlisting' not in body
+
+
+###########################################
+# '%' in the metadata, where YAML has no comment to borrow
+###########################################
+
+def test_a_percent_line_is_a_comment_in_the_metadata(convert):
+    """'%' opens a directive in YAML, so it cannot be left to the parser.
+It is the format's comment everywhere else, and a deck should not have to
+remember where it stops working."""
+    result = convert('---\ntitle: T\n% theme: metropolis\n'
+                     '% a note to self\n---\n\n# S\n\nx\n')
+    assert 'usetheme{default}' in result
+    assert 'metropolis' not in result
+    assert 'a note to self' not in result
+
+
+def test_a_percent_line_is_a_comment_in_a_slide_block(render):
+    body = render('===\ntitle: A slide\n% itemsep: 1.2em\nlabel: here\n'
+                  '---\n\n* x\n')
+    assert '[label=here]{A slide}' in body
+    assert 'setlength{\\itemsep}' not in body
+
+
 def test_render_block_quote(render):
     assert '\\begin{quote}' in render('# S\n\n> quoted\n')
 

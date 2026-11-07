@@ -15,6 +15,12 @@ if exists('b:current_syntax')
 endif
 
 runtime! syntax/markdown.vim
+
+" Four spaces of indent is not a listing in this format -- only a fence is
+" -- so markdown's indented code block has to go, or an indented directive
+" or raw LaTeX inside a list item is coloured as code and nothing of ours
+" can reach inside the region to say otherwise.
+syn clear markdownCodeBlock
 unlet! b:current_syntax
 
 syntax case match
@@ -60,6 +66,10 @@ syn match jimbeamerSlideKey
       \ /^\s*\%(title\|label\|options\|itemsep\|part\|section\|subsection\)\ze\s*:/
       \ contained
 syn match jimbeamerMetaComment /#.*$/ contained
+" '%' comments a metadata line too -- YAML has no comment this format could
+" borrow there, so the converter takes such a line out before reading it.
+" Anchored to the line, because a bare '%' inside a value is a per cent sign.
+syn match jimbeamerMetaComment /^\s*%.*$/ contained
 syn region jimbeamerMetaString start=/'/ skip=/''/ end=/'/ oneline contained
 syn region jimbeamerMetaString start=/"/ skip=/\\"/ end=/"/ oneline contained
 
@@ -82,11 +92,11 @@ syn match jimbeamerOption /[A-Za-z][-A-Za-z0-9_]*=[^ \t}]*/ contained
 " Directives: '@name arguments' to '@end'
 " ---------------------------------------------------------------------------
 
-syn match jimbeamerDirective /^\s\{0,3}@[A-Za-z][-A-Za-z0-9_]*/
+syn match jimbeamerDirective /^\s*@[A-Za-z][-A-Za-z0-9_]*/
       \ nextgroup=jimbeamerDirectiveArgs
 syn match jimbeamerDirectiveArgs /.*$/ contained
       \ contains=jimbeamerOverlay,jimbeamerMath,jimbeamerLatexMacro
-syn match jimbeamerDirectiveEnd /^\s\{0,3}@end\%([ \t]\+[A-Za-z][-A-Za-z0-9_]*\)\=[ \t]*$/
+syn match jimbeamerDirectiveEnd /^\s*@end\%([ \t]\+[A-Za-z][-A-Za-z0-9_]*\)\=[ \t]*$/
 syn match jimbeamerOverlay /<[^>\n]*>/ contained
 
 " '@preamble' is LaTeX for the preamble rather than an environment on a
