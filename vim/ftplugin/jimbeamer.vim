@@ -27,4 +27,16 @@ setlocal commentstring=%\ %s
 " one either: a line of bare '%' is a comment as much as '% note' is.
 setlocal comments=:%
 
-let b:undo_ftplugin = 'setlocal commentstring< comments<'
+" What 'gq' does to a paragraph.  Indentation carries meaning in a deck --
+" a directive or a fence lined up under a bullet belongs to that item -- and
+" re-wrapping without these flattens exactly the alignment that says so.
+"
+" 'n' makes a numbered list keep its hanging indent, and formatlistpat says
+" what a marker looks like here: this format counts '(a)', 'a)', '(iv)' and
+" '2.' as well as the bullets vim already knows.
+setlocal formatoptions+=n
+let &l:formatlistpat =
+      \ '^\s*\%(\d\+[.)]\|(\=\%(\d\+\|\a\|[ivxlcdm]\+\|[IVXLCDM]\+\))\|[-*+]\)\s\+'
+
+let b:undo_ftplugin =
+      \ 'setlocal commentstring< comments< formatoptions< formatlistpat<'
