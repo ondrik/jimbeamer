@@ -142,6 +142,15 @@ line in there survives as the LaTeX comment it is. `convert()` reads what was
 collected off the instance and appends it to `header-includes`, which is why
 it needs no template variable of its own and works with a custom template.
 
+**Indentation is not syntax.** CommonMark's four-space code block is
+overridden away (`CodeBlock.match` refuses), because a deck indents a
+directive or a run of raw LaTeX to line it up with the list item it belongs
+to, and turning that into a listing was silent and wrong. A fence is the
+only way to say "this is code". With the rule gone, nothing else has reason
+to cap indentation either, so `DIRECTIVE_RE` and friends take any amount of
+it, and the vim syntax clears `markdownCodeBlock` to match -- otherwise its
+region owns the line and nothing of ours can reach inside.
+
 **Directive arguments are read from the first character.** `<`, `[` or `{`
 means the rest is LaTeX and is handed over exactly as written; anything else
 is *friendly* and interpreted — a bare number as a fraction of `\textwidth`,
