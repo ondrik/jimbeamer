@@ -1024,7 +1024,12 @@ reads as the start of maths, far from where you made the mistake.
 
 ## Editor support
 
-A vim syntax file is in [`vim/`](https://github.com/ondrik/jimbeamer/tree/master/vim). It loads on top of the stock Markdown
+A vim syntax file is in [`vim/`](https://github.com/ondrik/jimbeamer/tree/master/vim),
+with a filetype plugin beside it that sets `commentstring` to `% %s` — so
+`gcc`, or whatever your comment plugin binds, comments a line the way this
+format does rather than the way Markdown does. A `%` line is removed before
+anything parses the document; an HTML comment is dropped too, but being a
+block it splits a list it sits inside. It loads on top of the stock Markdown
 syntax, so lists, emphasis and code fences keep working, and adds what this
 format puts on top: the two kinds of metadata block, the `@` directives, the
 `{...}` attribute list, all four maths spellings, `==highlight==`,

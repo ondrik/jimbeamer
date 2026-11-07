@@ -352,6 +352,47 @@ DETECT_CASES = {
 
 
 @pytest.fixture(scope='module')
+def buffer_options(tmp_path_factory):
+    """The options vim's ftplugin machinery leaves on a deck."""
+    if VIM is None:
+        pytest.skip('vim is not installed')
+
+    work = tmp_path_factory.mktemp('ftplugin')
+    (work / 'deck.md').write_text(SAMPLE, encoding='utf-8')
+    out = work / 'opts.json'
+    subprocess.run(
+        [VIM, '-N', '-u', 'NONE', '-i', 'NONE',
+         '--cmd', 'set runtimepath^=%s' % VIM_DIR,
+         '--cmd', 'filetype plugin on',
+         '-c', "call writefile([json_encode({'filetype': &filetype, "
+               "'commentstring': &commentstring, 'comments': &comments})], "
+               "'%s')" % out,
+         '-c', 'quit!', str(work / 'deck.md')],
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL, timeout=60, check=False)
+
+    assert out.exists(), 'vim wrote no result; the ftplugin may not load'
+    return json.loads(out.read_text(encoding='utf-8'))
+
+
+@vim_needed
+def test_the_ftplugin_offers_the_comment_this_format_has(buffer_options):
+    """A deck is an ordinary '.md' file, so vim loads its markdown
+ftplugin first and that sets commentstring to an HTML comment.  Without
+an ftplugin of ours the buffer keeps whatever that left behind, and every
+comment plugin -- 'gcc' and the rest -- wraps a line in it.
+
+'%' is the comment this format has: the converter removes such a line
+before anything parses the document.  '<!-- ... -->' is dropped too, but
+it is an HTML block, and one between two list items splits the list in
+two, which is a defect in TODO.md.  A '%' line does not.  It is also
+one-sided, so there is no closing half for a plugin to leave off."""
+    assert buffer_options['filetype'] == 'jimbeamer'
+    assert buffer_options['commentstring'] == '% %s'
+    assert buffer_options['comments'] == ':%'
+
+
+@pytest.fixture(scope='module')
 def detected(tmp_path_factory):
     """The filetype vim settles on, for each of the cases above."""
     if VIM is None:
