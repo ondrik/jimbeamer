@@ -121,8 +121,33 @@ syn region jimbeamerMathDisplay start=/\$\$/ end=/\$\$/ keepend
       \ contains=jimbeamerLatexMacro
 syn region jimbeamerMath start=/\$\ze[^$ \t]/ end=/\$/ oneline keepend
       \ contains=jimbeamerLatexMacro
-syn region jimbeamerMathBracket start=/\\\[/ end=/\\\]/ keepend
+" Display maths has the line to itself, as the converter requires: at most
+" three spaces before the opener (four would be a code block) and nothing
+" but blanks after the closer.  Anchored, because '\[' is also Markdown's
+" escape for a bracket -- unanchored, 'an interval \[0, 1)' opened a region
+" that ran to the next '\]' anywhere in the file, colouring the headings
+" and lists in between.
+"
+" The blank line is a second ending, because an opener whose closer never
+" ends a line is not maths at all -- it is an escaped bracket, and the
+" converter reads it inside one paragraph.  Without it such a line opens a
+" region that runs to the end of the file.
+" On one line: 'oneline' is what makes this follow the converter exactly.
+" A region that finds no end on its line is not applied at all, so
+" '\[0, 1) is an interval' -- an opener with nothing to close it -- is left
+" as the prose it is, rather than opening something that runs away.
+syn region jimbeamerMathBracket
+      \ start=/^\s\{0,3}\\\[/ end=/\\\]\ze[ \t]*$/ oneline keepend
       \ contains=jimbeamerLatexMacro
+
+" Across lines, where the opener has its own line.  The blank line is a
+" second ending: the converter reads this inside one paragraph, so an
+" unclosed opener cannot reach past it.  An opener with content after it
+" and its closer lines below ('\[ x =' ... 'y \]') is legal input and
+" goes uncoloured, which is the price of not looking ahead.
+syn region jimbeamerMathBracket
+      \ start=/^\s\{0,3}\\\[[ \t]*$/ end=/\\\]\ze[ \t]*$/ end=/^\s*$/
+      \ keepend contains=jimbeamerLatexMacro
 syn region jimbeamerMathParen start=/\\(/ end=/\\)/ oneline keepend
       \ contains=jimbeamerLatexMacro
 
