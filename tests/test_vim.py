@@ -9,8 +9,10 @@ nothing -- ordering alone decides most of what a vim syntax file does.
 Skipped where vim is absent, so the suite still needs nothing but pytest.
 """
 
+import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -294,6 +296,37 @@ file, which is how it drifted behind twice before."""
 
 
 @vim_needed
+def test_the_syntax_file_knows_every_slide_metadata_key(jimbeamer):
+    """Nearly every rule in the syntax file matches a shape -- any 'key:',
+any '.class', any '@directive' -- and so cannot fall behind the
+converter.  jimbeamerSlideKey is the exception: it lists the keys a slide
+understands, to tell them from one the converter will warn about.  A key
+added to SLIDE_METADATA_KEYS and not here would simply stop being
+coloured, and nothing would notice.
+
+Reads the file rather than vim, so it runs where vim is not installed.
+"""
+    with io.open(os.path.join(VIM_DIR, 'syntax', 'jimbeamer.vim'),
+                 encoding='utf-8') as handle:
+        source = handle.read()
+    match = re.search(r'jimbeamerSlideKey\s*\n\s*\\ /\^\\s\*\\%\((.+?)\\\)',
+                      source)
+    assert match, 'jimbeamerSlideKey is not where this test expects it'
+    assert set(match.group(1).split('\\|')) == set(jimbeamer.SLIDE_METADATA_KEYS)
+
+
+@vim_needed
+def test_a_percent_line_is_a_comment_in_the_metadata_too(tmp_path):
+    """The converter takes a '%' line out of a metadata block before the
+YAML is read, in the document's block and in a slide's own.  The syntax
+file knew only '#', which YAML itself understands."""
+    probed = run_vim(tmp_path, '---\ntitle: T\n% theme: metropolis\n---\n\n'
+                               '# S\n\n===\ntitle: A\n% itemsep: 1em\n'
+                               'label: here\n---\n\n* x\n')
+    assert 'jimbeamerMetaComment' in groups_on(probed, '% theme: metropolis')
+    assert 'jimbeamerMetaComment' in groups_on(probed, '% itemsep: 1em')
+
+
 def test_the_example_deck_is_recognized_as_ours(example):
     """And that it is this syntax doing the work, not markdown's alone."""
     seen = {group for _, groups in example for group in groups}

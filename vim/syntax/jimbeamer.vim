@@ -66,6 +66,10 @@ syn match jimbeamerSlideKey
       \ /^\s*\%(title\|label\|options\|itemsep\|part\|section\|subsection\)\ze\s*:/
       \ contained
 syn match jimbeamerMetaComment /#.*$/ contained
+" '%' comments a metadata line too -- YAML has no comment this format could
+" borrow there, so the converter takes such a line out before reading it.
+" Anchored to the line, because a bare '%' inside a value is a per cent sign.
+syn match jimbeamerMetaComment /^\s*%.*$/ contained
 syn region jimbeamerMetaString start=/'/ skip=/''/ end=/'/ oneline contained
 syn region jimbeamerMetaString start=/"/ skip=/\\"/ end=/"/ oneline contained
 
