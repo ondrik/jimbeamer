@@ -159,7 +159,7 @@ syn region jimbeamerMathDisplay start=/\$\$/ end=/\$\$/ keepend
 syn region jimbeamerMath start=/\$\ze[^$ \t]/ end=/\$/ oneline keepend
       \ contains=jimbeamerLatexMacro
 " Display maths has the line to itself, as the converter requires: at most
-" three spaces before the opener (four would be a code block) and nothing
+" indentation before the opener and nothing
 " but blanks after the closer.  Anchored, because '\[' is also Markdown's
 " escape for a bracket -- unanchored, 'an interval \[0, 1)' opened a region
 " that ran to the next '\]' anywhere in the file, colouring the headings
