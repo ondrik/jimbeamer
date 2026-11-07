@@ -61,7 +61,13 @@ int main(void) { return 0; }
 
 ---
 
-\\[\\bigvee_i a_i\\] and \\(x_3\\)
+\\[
+\\bigvee_i a_i
+\\]
+
+inline \\(x_3\\) and a citation \\[Clarke 81\\] mid-sentence
+
+\\[0, 1) is an interval, not an opener
 
 (a) a lettered item
 (ii) a roman one
@@ -195,7 +201,7 @@ def example(tmp_path_factory):
     pytest.param('int main(void)', 'jimbeamerCodeFence', id='code-fence'),
     pytest.param('pandoc & the obvious', 'jimbeamerLatexEnv', id='latex-env'),
     pytest.param('$x_1 \\land y_2$', 'jimbeamerMath', id='maths'),
-    pytest.param('\\[\\bigvee_i', 'jimbeamerMathBracket', id='display-maths'),
+    pytest.param('\\bigvee_i a_i', 'jimbeamerMathBracket', id='display-maths'),
     pytest.param('\\(x_3\\)', 'jimbeamerMathParen', id='latex-inline-maths'),
     pytest.param('(a) a lettered', 'jimbeamerListMarker', id='lettered'),
     pytest.param('(ii) a roman', 'jimbeamerListMarker', id='roman'),
@@ -241,6 +247,29 @@ untitled frame are the same characters, and must not be the same colour."""
 ###########################################
 # what it must leave alone
 ###########################################
+
+@vim_needed
+@pytest.mark.parametrize('needle', [
+    pytest.param('a citation', id='mid-sentence'),
+    pytest.param('is an interval', id='opens-the-line'),
+])
+def test_an_escaped_bracket_is_not_display_maths(sample, needle):
+    """The converter reads '\\[' as display maths only where it has the
+line to itself; anywhere else it is Markdown's escape for a bracket.  The
+syntax file used to open a region at any '\\[' and, not being oneline,
+run it to the next '\\]' -- which coloured the headings and lists of the
+rest of the file as maths."""
+    assert 'jimbeamerMathBracket' not in groups_on(sample, needle)
+
+
+@vim_needed
+def test_an_unclosed_bracket_stops_at_the_paragraph(sample):
+    """'\\[0, 1) is an interval' opens nothing that can close, so the
+region is ended by the blank line below it rather than by the end of the
+file.  The list after it is a list again."""
+    assert 'jimbeamerMathBracket' not in groups_on(sample, '(a) a lettered')
+    assert 'jimbeamerMathBracket' not in groups_on(sample, '==highlighted==')
+
 
 @vim_needed
 @pytest.mark.parametrize('needle', [
