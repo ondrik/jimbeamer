@@ -42,7 +42,7 @@ and is nobody's dependency to declare.
 | `README.md` | how to install it, how to use it, and the input format in full |
 | `TODO.md` | what is missing, wrong, or undecided |
 | `LICENSE` | MIT |
-| `vim/` | syntax file and filetype detection for the input format |
+| `vim/` | syntax file, filetype detection, and the ftplugin that gives `gcc` the `%` comment |
 
 ## Current state
 
