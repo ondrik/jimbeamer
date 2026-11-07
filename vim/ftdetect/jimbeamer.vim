@@ -20,12 +20,12 @@ function! s:LooksLikeADeck() abort
     " keeps a document *about* the format, this project's own README among
     " them, from being mistaken for a deck written in it.
     if fence !=# ''
-      if l =~# '^\s\{0,3}' . fence . '\s*$'
+      if l =~# '^\s*' . fence . '\s*$'
         let fence = ''
       endif
       continue
     endif
-    let m = matchstr(l, '^\s\{0,3}\zs\%(`\{3,}\|\~\{3,}\)')
+    let m = matchstr(l, '^\s*\zs\%(`\{3,}\|\~\{3,}\)')
     if m !=# ''
       let fence = m
       continue
@@ -33,7 +33,7 @@ function! s:LooksLikeADeck() abort
 
     " a directive, '@theorem' or '@end', but not an e-mail address or a
     " decorator quoted mid-sentence: it has to open the line
-    if l =~# '^\s\{0,3}@\%(end\>\|[A-Za-z][-A-Za-z0-9_]*\%([ \t<[{].*\)\=$\)'
+    if l =~# '^\s*@\%(end\>\|[A-Za-z][-A-Za-z0-9_]*\%([ \t<[{].*\)\=$\)'
       return 1
     endif
     " a slide's own metadata block

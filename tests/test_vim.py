@@ -75,6 +75,22 @@ inline \\(x_3\\) and a citation \\[Clarke 81\\] mid-sentence
 (ii) a roman one
 2. a plain one starting at two
 
+* an item, with everything below lined up under it
+    ```C
+    int indented;
+    ```
+    @minipage 6cm
+    \\input{figs/x}
+    @end minipage
+  * nested
+    (a) lettered under a nested bullet
+
+    \\[
+      x^2
+    \\]
+
+a citation [\\[Clarke 81\\]]{.hlvio} inside a span
+
 ==highlighted== and [red]{.hlrd}
 
 a span that [wraps across
@@ -296,6 +312,69 @@ file, which is how it drifted behind twice before."""
 
 
 @vim_needed
+@pytest.mark.parametrize('needle, group', [
+    pytest.param('int indented', 'jimbeamerCodeFence', id='fence'),
+    pytest.param('\\input{figs/x}', 'jimbeamerLatexMacro', id='preamble-body'),
+    pytest.param('(a) lettered under', 'jimbeamerListMarker', id='nested-marker'),
+    pytest.param('x^2', 'jimbeamerMathBracket', id='display-maths'),
+])
+def test_an_indented_construct_is_still_itself(sample, needle, group):
+    """Indentation stopped being syntax, and the converter measures what
+is left relative to the list item.  Five rules here kept an absolute cap
+of three spaces, which is one less than the ordinary indent of content
+under a second-level bullet -- so a fence, a preamble, display maths and
+a lettered marker all lost their colour exactly where a deck puts them."""
+    assert group in groups_on(sample, needle)
+
+
+@vim_needed
+def test_a_span_may_hold_an_escaped_bracket(sample):
+    """'[\\[Clarke 81\\]]{.hlvio}' is how a citation goes in one.  The
+contents stopped at the first ']', so the span was not a span."""
+    assert 'jimbeamerSpan' in groups_on(sample, 'inside a span')
+
+
+@vim_needed
+@pytest.mark.parametrize('opener, needle', [
+    pytest.param('---\nnot: frontmatter, no fence\n', '# After', id='frontmatter'),
+    pytest.param('# S\n\n===\n\nprose under a bare ===\n', '# After',
+                 id='slide-block'),
+    pytest.param('# S\n\n\\begin{tabularx}{\\textwidth}{lX}\n  a & b \\\\\n',
+                 '# After', id='unclosed-environment'),
+])
+def test_a_region_whose_terminator_never_comes_stops(tmp_path, opener, needle):
+    """A region cannot look ahead, so each of these still opens one -- and
+each used to paint the rest of the file.  The converter stops at a
+heading or declines the construct entirely; a heading ends them here.
+The frontmatter one was the worst: '#' is a comment inside that region,
+so the first heading of the deck came out greyed."""
+    probed = run_vim(tmp_path, opener + '\n# After\n\n* a list\n')
+    assert 'jimbeamerHeading' in groups_on(probed, needle)
+    assert 'markdownListMarker' in groups_on(probed, '* a list')
+
+
+@vim_needed
+def test_a_verbatim_environment_is_not_ended_by_a_hash(tmp_path):
+    """The exception the converter makes: inside VERBATIM_ENVIRONMENTS a
+'# ' line is a shell or Python comment, not a heading, so only the
+matching \\end closes it."""
+    probed = run_vim(tmp_path, '# S\n\n\\begin{verbatim}\n# not a heading\n'
+                               '\\end{verbatim}\n')
+    assert 'jimbeamerHeading' not in groups_on(probed, '# not a heading')
+
+
+@vim_needed
+@pytest.mark.parametrize('needle', [
+    pytest.param('<!--lang: en-->', id='html'),
+    pytest.param('% a note', id='percent'),
+])
+def test_both_metadata_comments_are_comments(tmp_path, needle):
+    """YAML_COMMENT_RE takes both out before the block is read."""
+    probed = run_vim(tmp_path, '---\ntitle: T\n<!--lang: en-->\n% a note\n'
+                               '---\n\n# S\n\nx\n')
+    assert 'jimbeamerMetaComment' in groups_on(probed, needle)
+
+
 def test_the_syntax_file_knows_every_slide_metadata_key(jimbeamer):
     """Nearly every rule in the syntax file matches a shape -- any 'key:',
 any '.class', any '@directive' -- and so cannot fall behind the

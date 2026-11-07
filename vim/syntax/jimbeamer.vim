@@ -37,7 +37,7 @@ syntax case match
 " An ordered list's marker, which says what the list looks like: a letter
 " or a roman numeral needs a parenthesis, a digit keeps CommonMark's '1.'.
 syn match jimbeamerListMarker
-      \ /^\s\{0,3}\%((\%(\d\{1,9}\|[A-Za-z]\|[ivxlcdm]\{2,}\|[IVXLCDM]\{2,}\))\|\%([A-Za-z]\|[ivxlcdm]\{2,}\|[IVXLCDM]\{2,}\))\|\d\{1,9}[.)]\)\ze[ \t]/
+      \ /^\s*\%((\%(\d\{1,9}\|[A-Za-z]\|[ivxlcdm]\{2,}\|[IVXLCDM]\{2,}\))\|\%([A-Za-z]\|[ivxlcdm]\{2,}\|[IVXLCDM]\{2,}\))\|\d\{1,9}[.)]\)\ze[ \t]/
 
 " A thematic break starts an untitled frame.
 syn match jimbeamerBreak /^\s\{0,3}\%(---\+\|\*\*\*\+\|___\+\)[ \t]*$/
@@ -49,14 +49,25 @@ syn match jimbeamerLatexMacro
 " The document's block is metadata only at the very start of the file and
 " only when a closing fence follows; the converter applies the same rule, and
 " without the fence this is an ordinary thematic break.
+" A region cannot look ahead, so a '---' with no closing fence still opens
+" this one -- and the converter, which can, calls that an ordinary thematic
+" break.  A heading ends it, which is as far wrong as it can now go: without
+" that it ran to the end of the file and painted the first heading as a YAML
+" comment, since '#' starts one inside this region.
 syn region jimbeamerFrontMatter matchgroup=jimbeamerMetaFence
       \ start=/\%^---[ \t]*$/ end=/^\%(---\|\.\.\.\)[ \t]*$/
+      \ end=/^\s*#\{1,6}\%([ \t]\|$\)/me=s-1
       \ keepend contains=jimbeamerMetaKey,jimbeamerMetaComment,jimbeamerMetaString
 
 " A slide's own block: '===' opens it, '---' closes it.  The asymmetry is the
 " point -- '---' alone starts a slide, and only '===' opens a block.
+" SLIDE_METADATA_RE wants a run of non-blank lines and then the closing
+" fence, so a blank line means this was never a block -- and a heading is
+" the frame boundary.  Both end it here, or a bare '===' swallowed the rest
+" of the slide and repainted the next frame break as a fence.
 syn region jimbeamerSlideMeta matchgroup=jimbeamerMetaFence
       \ start=/^===[ \t]*$/ end=/^\%(---\|\.\.\.\)[ \t]*$/
+      \ end=/^\s*$/ end=/^\s*#\{1,6}\%([ \t]\|$\)/me=s-1
       \ keepend contains=jimbeamerSlideKey,jimbeamerMetaKey,jimbeamerMetaComment,
       \ jimbeamerMetaString
 
@@ -70,6 +81,9 @@ syn match jimbeamerMetaComment /#.*$/ contained
 " borrow there, so the converter takes such a line out before reading it.
 " Anchored to the line, because a bare '%' inside a value is a per cent sign.
 syn match jimbeamerMetaComment /^\s*%.*$/ contained
+" and the one that came first: YAML_COMMENT_RE has taken an HTML comment out
+" of a metadata block since before '%' did.
+syn match jimbeamerMetaComment /^\s*<!--.\{-}-->[ \t]*$/ contained
 syn region jimbeamerMetaString start=/'/ skip=/''/ end=/'/ oneline contained
 syn region jimbeamerMetaString start=/"/ skip=/\\"/ end=/"/ oneline contained
 
@@ -104,8 +118,8 @@ syn match jimbeamerOverlay /<[^>\n]*>/ contained
 " directive match: where two items match in the same place vim prefers the
 " one defined last, and this one has to win the opening line.
 syn region jimbeamerPreamble matchgroup=jimbeamerDirective
-      \ start=/^\s\{0,3}@preamble[ \t]*$/
-      \ end=/^\s\{0,3}@end\%([ \t]\+preamble\)\=[ \t]*$/
+      \ start=/^\s*@preamble[ \t]*$/
+      \ end=/^\s*@end\%([ \t]\+preamble\)\=[ \t]*$/
       \ end=/^\s\{0,3}#\{1,6}\%([ \t]\|$\)/me=s-1
       \ keepend contains=jimbeamerLatexMacro,jimbeamerComment
 
@@ -113,10 +127,23 @@ syn region jimbeamerPreamble matchgroup=jimbeamerDirective
 " Raw LaTeX, which passthrough makes ordinary here
 " ---------------------------------------------------------------------------
 
-" An environment written out by hand is taken verbatim to its matching \end,
-" so nothing inside it is Markdown.
+" Every environment ends at a heading as well, which is what
+" RawLatexEnvironment.parse() does: without it an unterminated '\begin'
+" swallowed the rest of the file, and a deck of twenty frames came out as
+" one.  The syntax file did exactly what the converter was changed to stop
+" doing.
 syn region jimbeamerLatexEnv matchgroup=jimbeamerLatexMacro
       \ start=/^[ \t]*\\begin{\z([A-Za-z@*]\+\)}/
+      \ end=/^[ \t]*\\end{\z1}/
+      \ end=/^\s*#\{1,6}\%([ \t]\|$\)/me=s-1
+      \ keepend contains=jimbeamerMath,jimbeamerMathDisplay,jimbeamerLatexMacro
+
+" An environment whose contents are taken literally: a '# ' line in one is
+" a shell or Python comment, not a heading, so only the matching \end closes
+" it.  This is VERBATIM_ENVIRONMENTS, and it is listed last so that it wins
+" -- of two regions that can start in the same place, vim takes the later.
+syn region jimbeamerLatexEnv matchgroup=jimbeamerLatexMacro
+      \ start=/^[ \t]*\\begin{\z(lstlisting\|verbatim\|Verbatim\|alltt\|minted\|semiverbatim\|comment\)}/
       \ end=/^[ \t]*\\end{\z1}/
       \ keepend contains=jimbeamerMath,jimbeamerMathDisplay,jimbeamerLatexMacro
 
@@ -147,7 +174,7 @@ syn region jimbeamerMath start=/\$\ze[^$ \t]/ end=/\$/ oneline keepend
 " '\[0, 1) is an interval' -- an opener with nothing to close it -- is left
 " as the prose it is, rather than opening something that runs away.
 syn region jimbeamerMathBracket
-      \ start=/^\s\{0,3}\\\[/ end=/\\\]\ze[ \t]*$/ oneline keepend
+      \ start=/^\s*\\\[/ end=/\\\]\ze[ \t]*$/ oneline keepend
       \ contains=jimbeamerLatexMacro
 
 " Across lines, where the opener has its own line.  The blank line is a
@@ -156,7 +183,7 @@ syn region jimbeamerMathBracket
 " and its closer lines below ('\[ x =' ... 'y \]') is legal input and
 " goes uncoloured, which is the price of not looking ahead.
 syn region jimbeamerMathBracket
-      \ start=/^\s\{0,3}\\\[[ \t]*$/ end=/\\\]\ze[ \t]*$/ end=/^\s*$/
+      \ start=/^\s*\\\[[ \t]*$/ end=/\\\]\ze[ \t]*$/ end=/^\s*$/
       \ keepend contains=jimbeamerLatexMacro
 syn region jimbeamerMathParen start=/\\(/ end=/\\)/ oneline keepend
       \ contains=jimbeamerLatexMacro
@@ -174,7 +201,10 @@ syn match jimbeamerHighlight /\%(=\)\@<!==[^= \t]==\%(=\)\@!/
 
 " [text]{.macro}: the class is the macro name.
 " As the highlight, the text may wrap; the ']' and the '{' stay adjacent.
-syn match jimbeamerSpan /\[\_[^]]\{-}\]{[^}\n]*}/
+" '\]' inside, so a citation can go in one: '[\[Clarke 81\]]{.hlvio}'.
+" Without the escape alternative the contents stop at the first ']' and the
+" span is not a span at all.
+syn match jimbeamerSpan /\[\%(\\.\|\_[^]]\)\{-}\]{[^}\n]*}/
       \ contains=jimbeamerSpanText,jimbeamerClass
 syn match jimbeamerSpanText /\[\zs\_[^]]\{-}\ze\]/ contained
 
@@ -196,8 +226,8 @@ syn region jimbeamerHtmlComment start=/<!--/ end=/-->/ keepend
 " ---------------------------------------------------------------------------
 
 syn region jimbeamerCodeFence matchgroup=jimbeamerCodeDelim
-      \ start=/^\s\{0,3}\z(`\{3,}\|\~\{3,}\)\s*\%([A-Za-z0-9_+-]*\)/
-      \ end=/^\s\{0,3}\z1\s*$/ keepend
+      \ start=/^\s*\z(`\{3,}\|\~\{3,}\)\s*\%([A-Za-z0-9_+-]*\)/
+      \ end=/^\s*\z1\s*$/ keepend
 
 " ---------------------------------------------------------------------------
 

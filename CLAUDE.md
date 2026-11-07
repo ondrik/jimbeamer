@@ -274,14 +274,24 @@ are four kinds of check worth keeping:
   listing is marked fragile, and the frame count matches the number of `#`
   headings, less the ones that only open a section, plus the slides declared
   by a metadata block of their own. Add to `EXAMPLE` when adding a construct,
-  and these come along.
+  and these come along — and to the sample in `tests/test_vim.py` as well,
+  which is a different document and the one the colour probes read.
 - **Probing the vim syntax file**, by opening a document under it and asking
   `synID()` which group every character fell into. Reading the patterns
-  proves nothing: ordering decides most of what a vim syntax file does, and
-  the first draft of that one was wrong about it twice. One of these probes
-  `EXAMPLE` and fails if vim flags an *error* anywhere in it, which is what
-  catches a construct added to the format and not to the syntax — the way it
-  fell behind twice before the tests existed. Skipped where vim is absent.
+  proves nothing: ordering decides most of what a vim syntax file does —
+  of two regions that can start in the same place, vim takes the later —
+  and that one was wrong about it three times.
+
+  **These probes do not catch drift on their own, and this file used to say
+  they did.** The `EXAMPLE` probe fails only where vim flags an *error*,
+  which it does for what the syntax file explicitly marks as one; a
+  construct that is merely mis-coloured passes. The syntax file fell behind
+  the converter three times *with these tests in place* — the `\[` rule, the
+  indent caps, and `%` in a metadata block. What catches drift is asserting
+  what must **not** be coloured, and asserting it for the shapes a deck
+  really has: the sample in `tests/test_vim.py` had no indented construct
+  anywhere until the audit that found all three. Skipped where vim is
+  absent, except the one guard that reads the file instead.
 - **Reading the built PDF.** `pdftotext -layout` found three faults on the code
   slides that the tests were blind to; rendering a page with `pdftoppm` and
   looking at it found a column misalignment and a footline that had gone blue
@@ -353,8 +363,12 @@ Recorded so they are not proposed again. None is an oversight.
 
 ## Remaining work
 
-`TODO.md` — everything known to be missing, wrong, or undecided, kept there
-rather than here so there is one list and not two that drift apart. The one
+`TODO.md` — what is missing, wrong, or undecided, kept there rather than
+here so there is one list and not two that drift apart. A defect with a
+reproduction of its own is a [GitHub issue](https://github.com/ondrik/jimbeamer/issues)
+instead, so the discussion sits beside the case that shows it; `TODO.md`
+holds what was found by reading the documentation against the source, and
+the tracker what was found by running the converter. The one
 worth knowing before touching the preamble: `string.Template` has no
 conditionals, so an optional block is computed in Python and injected whole,
 the way `$titlepage`, `$sectionpages` and `$toc` are.
