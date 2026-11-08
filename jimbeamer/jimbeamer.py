@@ -193,15 +193,120 @@ LISTINGS_LANGUAGES = {
 # its own it closes one:  '::: { .column width=30% }' ... ':::'
 DIV_FENCE_RE = re.compile(r'(:{3,})[ \t]*(.*?)[ \t]*$', re.MULTILINE)
 
-# A code fence: so that a ':::' inside a listing is not mistaken for a div,
-# and so that the comment stripper knows where a leading '%' is content.
-#
-# Any indent at all.  It was capped at three for as long as four made an
-# indented code block, where a line of backticks is literal text rather
-# than a fence -- but a fence lined up under a bullet is four columns in,
-# and the stripper then deleted the '%' lines of a listing the converter
-# went on to emit.  A line of code vanished and nothing said so.
-CODE_FENCE_RE = re.compile(r'[ \t]*(`{3,}|~{3,})')
+def indent_width(text):
+    """indent_width(str) -> int
+
+The column an indent reaches, counting a tab the four columns marko counts
+it as.  Every comparison of one indent with another goes through this: a
+tab and four spaces are the same indent, and until they were measured the
+same way, a fence opened with one and closed with the other was not
+closed at all.
+"""
+    return len(text.expandtabs(4))
+
+
+def strip_indent(line, width):
+    """strip_indent(str, int) -> str
+
+`line` with up to `width` columns of leading whitespace taken off, keeping
+whatever it is indented by beyond that.  A line indented less than that --
+a blank one above all -- loses only what it has, and keeps its newline.
+
+This is what marko's Source.match_prefix does for the body of a fenced
+block, except that match_prefix measures the line in expanded columns and
+the prefix in characters, so a prefix holding a tab matched nothing and
+the caller fell back to line.lstrip().  A listing opened with a tab came
+out flush left, its inner indentation gone and its blank lines with it --
+lstrip() eats the newline too.
+"""
+    taken = 0
+    for i, char in enumerate(line):
+        if char == '\t':
+            taken += 4 - taken % 4      # to the next tab stop, as marko counts
+        elif char == ' ':
+            taken += 1
+        else:
+            return line[i:]             # indented less than asked: all of it
+        if taken >= width:
+            # A tab can straddle the width; what it covered past it stays.
+            return ' ' * (taken - width) + line[i + 1:]
+    return line
+
+
+class Fence:
+    """Where a fenced code block begins, and where it ends.
+
+Three parts of this module have to answer that: the parser, which turns
+the block into a listing, and the two passes that run before it -- the one
+that lifts '@preamble' out of the document, and the one that strips '%'
+comments -- both of which have to leave the contents of a listing alone.
+
+They each used to answer it themselves, and for three releases running
+they answered differently.  Every fix went into whichever one the bug was
+reported against, and so moved that one further out of step with the other
+two; the next report was the same bug wearing a different hat.  A '%' line
+deleted from a listing, a quoted '@preamble' hoisted into the real one, a
+listing torn in two at a line it was quoting -- one cause, three faces.
+The rules are here now, and all three ask rather than decide.
+"""
+
+    #: An opening fence: any indent, three or more backticks or tildes, and
+    #: an info string.  The groups are (indent, marker, info), which is the
+    #: shape marko's FencedCode.match destructures.
+    #:
+    #: CommonMark caps the indent at three columns, since beyond that a row
+    #: of backticks is an indented code block instead.  This format has no
+    #: indented code block (see CodeBlock), and a fence lined up under a
+    #: second-level bullet is four columns in, so there is no cap.
+    OPEN_RE = re.compile(r'([ \t]*)(`{3,}|~{3,})[^\n\S]*(.*?)$', re.MULTILINE)
+
+    #: A closing fence: the same character as the opener and at least as
+    #: many of them, with nothing but whitespace after.  That anchor is
+    #: what keeps '```C' an opener rather than a closer.
+    CLOSE_RE = re.compile(r'([ \t]*)(`+|~+)[^\n\S]*$', re.MULTILINE)
+
+    #: How much further than its opener a closing fence may be indented:
+    #: CommonMark's three columns, measured from the opener rather than
+    #: from the margin.  A deck explaining this format quotes a fence that
+    #: is indented inside the fence quoting it, and measured from the
+    #: margin that quoted line closed the block, tearing the listing in two.
+    SLACK = 3
+
+    def __init__(self, indent, marker):
+        self.indent = indent_width(indent)
+        self.marker = marker
+
+    @classmethod
+    def opens(cls, line):
+        """Fence.opens(str) -> Fence or None
+
+The fence `line` opens, or None when it opens none.
+"""
+        match = cls.OPEN_RE.match(line)
+        if not match:
+            return None
+        indent, marker, info = match.groups()
+        # CommonMark, and marko's own FencedCode.match: a backtick fence's
+        # info string may not hold a backtick, so '```a``` b' is a
+        # paragraph with a code span in it.  Keeping that rule in the
+        # parser alone is a disagreement like any other -- the passes
+        # before it would take the rest of the deck for inside a listing.
+        if marker[0] == '`' and '`' in info:
+            return None
+        return cls(indent, marker)
+
+    def closes(self, line):
+        """fence.closes(str) -> bool
+
+Whether `line` is the fence that closes this one.
+"""
+        match = self.CLOSE_RE.match(line)
+        return bool(match
+                    and match.group(2)[0] == self.marker[0]
+                    and len(match.group(2)) >= len(self.marker)
+                    and indent_width(match.group(1))
+                    <= self.indent + self.SLACK)
+
 
 # The classes of a bracketed span, '[text]{.hlrd .bf}'.  Each becomes a
 # macro wrapped around the text, so the class is the macro name.
@@ -220,17 +325,57 @@ QUOTE_OPENS_AFTER = set(' \t\n([{<' '‘“–—-/')
 # since the line then starts with a backslash.
 COMMENT_LINE_RE = re.compile(r'[ \t]*%')
 
-# A fenced code block, and a verbatim LaTeX environment: the two places
-# where a leading '%' is content rather than a comment.  The fence is
-# CODE_FENCE_RE above -- it used to be redefined here, more strictly, and
-# the redefinition is what issue #12 was.
-# Environments whose contents are taken literally.  A '%' line inside one is
-# content, and so is a '# ' line -- a shell or Python comment, not a heading --
-# which is why RawLatexEnvironment does not let a heading close one of these.
+# Environments whose contents are taken literally: the other place, beside
+# a fenced code block, where a leading '%' is content rather than a comment.
+# LiteralScanner below knows both.  A '# ' line in one is content too -- a
+# shell or Python comment, not a heading -- which is why RawLatexEnvironment
+# does not let a heading close one of these.
 VERBATIM_ENVIRONMENTS = ('lstlisting', 'verbatim', 'Verbatim', 'alltt',
                          'minted', 'semiverbatim', 'comment')
 VERBATIM_BEGIN_RE = re.compile(
     r'[ \t]*\\begin\{(' + '|'.join(VERBATIM_ENVIRONMENTS) + r')\}')
+
+
+class LiteralScanner:
+    """Says, line by line, whether we are somewhere taken literally.
+
+The two passes that run before marko -- the preamble splitter and the
+comment stripper -- both have to know this, and both used to work it out
+for themselves.  A fenced code block is such a place, and so is a verbatim
+LaTeX environment written out by hand: a '%' in either is content, and an
+'@preamble' in either is an example of one rather than one.
+"""
+
+    def __init__(self):
+        self.fence = None       # the Fence that opened the block we are in
+        self.verbatim = None    # the environment we are in, by name
+
+    def feed(self, line):
+        """scanner.feed(str) -> bool
+
+True when `line` is literal content, the line that opened it included.
+"""
+        if self.fence is not None:
+            if self.fence.closes(line):
+                self.fence = None
+            return True
+
+        if self.verbatim is not None:
+            if re.match(r'[ \t]*\\end\{%s\}' % re.escape(self.verbatim), line):
+                self.verbatim = None
+            return True
+
+        self.fence = Fence.opens(line)
+        if self.fence is not None:
+            return True
+
+        match = VERBATIM_BEGIN_RE.match(line)
+        if match:
+            self.verbatim = match.group(1)
+            return True
+
+        return False
+
 
 # An image, with an optional title and an optional attribute list:
 #   ![alt](figure.png "title"){ width=0.8 }
@@ -732,8 +877,7 @@ slide rather than the rest of the deck.
 """
     pieces, kept = [], []
     block = None                # the lines of the block being collected
-    fence = None
-    verbatim = None
+    scanner = LiteralScanner()
 
     for line in text.splitlines(keepends=True):
         if block is not None:
@@ -752,29 +896,10 @@ slide rather than the rest of the deck.
             block.append(line)
             continue
 
-        if fence is not None:
-            kept.append(line)
-            match = CODE_FENCE_RE.match(line)
-            if match and match.group(1)[0] == fence[0] \
-                    and len(match.group(1)) >= len(fence):
-                fence = None
-            continue
-
-        if verbatim is not None:
-            kept.append(line)
-            if re.match(r'[ \t]*\\end\{%s\}' % re.escape(verbatim), line):
-                verbatim = None
-            continue
-
-        match = CODE_FENCE_RE.match(line)
-        if match:
-            fence = match.group(1)
-            kept.append(line)
-            continue
-
-        match = VERBATIM_BEGIN_RE.match(line)
-        if match:
-            verbatim = match.group(1)
+        # Not while collecting a block: the scanner is asked below the
+        # test above, so a fence inside an '@preamble' is LaTeX like the
+        # rest of it and leaves no state behind.
+        if scanner.feed(line):
             kept.append(line)
             continue
 
@@ -811,39 +936,11 @@ is also left alone -- it would be too easy to eat the rest of an
 `inline code` span -- and still reaches LaTeX, where it is still a comment.
 """
     kept = []
-    fence = None                # the backticks or tildes that opened a block
-    verbatim = None             # the name of a verbatim environment
+    scanner = LiteralScanner()
 
     for line in text.splitlines(keepends=True):
-        if fence is not None:
-            kept.append(line)
-            match = CODE_FENCE_RE.match(line)
-            if match and match.group(1)[0] == fence[0] \
-                    and len(match.group(1)) >= len(fence):
-                fence = None
-            continue
-
-        if verbatim is not None:
-            kept.append(line)
-            if re.match(r'[ \t]*\\end\{%s\}' % re.escape(verbatim), line):
-                verbatim = None
-            continue
-
-        match = CODE_FENCE_RE.match(line)
-        if match:
-            fence = match.group(1)
-            kept.append(line)
-            continue
-
-        match = VERBATIM_BEGIN_RE.match(line)
-        if match:
-            verbatim = match.group(1)
-            kept.append(line)
-            continue
-
-        if COMMENT_LINE_RE.match(line):
+        if not scanner.feed(line) and COMMENT_LINE_RE.match(line):
             continue            # a comment: drop it
-
         kept.append(line)
 
     return ''.join(kept)
@@ -1418,54 +1515,41 @@ paragraph and the backticks became an inline code span, so
 came out as '\\texttt{C int x; }'.  The listing was destroyed, the
 newlines with it, and nothing said so.
 
-Only the pattern changes.  The captured indent is what marko strips from
-the body, so capturing all of it is also what keeps the code aligned.
+What is left of the class once the rules move out to Fence is the reason
+they had to: marko decides where the block ends inside parse(), not in a
+pattern of its own, so there is no way to say it other than by holding a
+copy of the method.  The copy asks Fence rather than deciding, which is
+what keeps it in step with the two passes that run before it.
 """
 
     override = True
-    #: '[ \t]', not ' ': a tab is indentation everywhere else in this
-    #: module, and a fence opened with one fell through the very hole
-    #: this class exists to close.
-    pattern = re.compile(r'([ \t]*)(`{3,}|~{3,})[^\n\S]*(.*?)$', re.MULTILINE)
 
-    #: the closing fence, which marko caps in parse() rather than in a
-    #: pattern of its own, so the body is copied from it to change the one
-    #: place that matters.  Checked against marko 2.2.5.
-    #:
-    #: The indent is captured rather than discarded.  Dropping marko's cap
-    #: outright let any fence line close the block, so a listing quoting an
-    #: indented fence -- a deck explaining this format, say -- was torn in
-    #: two at the quoted line.  The cap is kept, measured from the opener
-    #: instead of from the margin.
-    close = re.compile(r'([ \t]*)(~+|`+)[^\n\S]*$', re.MULTILINE)
-
-    #: how much further than its opener a closing fence may be indented,
-    #: which is CommonMark's allowance, now relative rather than absolute
-    close_slack = 3
+    #: marko matches the opener with this and hands the three groups to
+    #: ParseInfo, so the Fence pattern is the pattern here.  Checked
+    #: against marko 2.2.5.
+    pattern = Fence.OPEN_RE
 
     @classmethod
     def parse(cls, source):
+        """Copied from marko 2.2.5 and changed in the two places marked.
+
+marko caps the closing fence in parse() rather than in a pattern of its
+own, which is why the body is here at all.
+"""
         source.next_line()
         source.consume()
         lines = []
         info = source.context.code_info
+        fence = Fence(info.prefix, info.leading)        # changed: the rules
         while not source.exhausted:
             line = source.next_line()
             if line is None:
                 break
             source.consume()
-            end = cls.close.match(line)
-            if end and info.leading in end.group(2) \
-                    and len(end.group(1).expandtabs(4)) \
-                    <= len(info.prefix.expandtabs(4)) + cls.close_slack:
+            if fence.closes(line):                      # changed: the rules
                 break
 
-            prefix_len = source.match_prefix(info.prefix, line)
-            if prefix_len >= 0:
-                line = line[prefix_len:]
-            else:
-                line = line.lstrip()
-            lines.append(line)
+            lines.append(strip_indent(line, fence.indent))
         return info.lang, info.extra, ''.join(lines)
 
 

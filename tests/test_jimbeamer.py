@@ -5,6 +5,7 @@
     pytest -v                           # per-test names
 """
 
+import itertools
 import os
 import re
 import shutil
@@ -732,6 +733,140 @@ closer and swallowed what followed."""
     assert '@end column' not in body
 
 
+@pytest.mark.parametrize('indent', ['    ', '\t'], ids=['spaces', 'tab'])
+def test_a_fence_keeps_the_shape_of_its_body(render, indent):
+    """The body is dedented by the opener's indent and no further, so what
+is indented inside the listing stays indented and a blank line stays
+blank.
+
+A tab opener lost both.  marko dedents with Source.match_prefix, which
+measures the line in expanded columns but the prefix in characters, so a
+prefix holding a tab matched nothing and the fallback was line.lstrip():
+every line flush left, and the blank ones gone altogether, since lstrip()
+takes the newline too.  The two tab tests above passed throughout -- a
+one-line body with nothing to lose."""
+    body = render('# S\n\n%s```C\n%sif (x) {\n%s    y();\n\n%s    z();\n'
+                  '%s}\n%s```\n' % ((indent,) * 6))
+    assert ('\\begin{lstlisting}[language={C}]\n'
+            'if (x) {\n    y();\n\n    z();\n}\n'
+            '\\end{lstlisting}') in body
+
+
+def test_a_listing_quoting_one_fence_keeps_the_rest_of_itself(render):
+    """The parser and the two passes before it have to agree on where this
+listing ends, and did not: the passes had no cap on the closing fence, so
+the quoted ```` ```c ```` -- eight columns in, past the three a closer may
+be -- ended the listing for them and not for the parser.
+
+Everything after it was then outside a listing as far as they could see:
+the '%' line went as a comment and the '@preamble' was lifted into the
+real preamble, which fails the build looking for the package.  The parser
+went on to emit the listing without them.  A deck explaining this format
+lost four lines and was told nothing.
+
+An even number of quoted fence lines put the passes back in step and hid
+it, which is why the test above -- quoting a matched pair -- stayed
+green."""
+    body = render('# S\n\n```markdown\nopen one with\n\n        ```c\n\n'
+                  'and close it with another.\n'
+                  '% a comment line that belongs to the listing\n'
+                  '@preamble\n\\usepackage{yourpackage}\n@end preamble\n'
+                  '```\n')
+    assert body.count('\\begin{lstlisting}') == 1
+    assert '% a comment line that belongs to the listing' in body
+    assert '@preamble' in body
+
+
+def test_a_quoted_preamble_is_not_hoisted_out_of_its_listing(convert):
+    """The other half of the one above, through convert() rather than
+render(), since the damage lands in the preamble: '@preamble' inside a
+listing is an example of one, and hoisting it wrote a \\usepackage into
+the document that nothing had installed."""
+    result = convert('---\ntitle: T\n---\n\n# S\n\n```markdown\nopen one with\n\n'
+                     '        ```c\n\nand close it with another.\n'
+                     '@preamble\n\\usepackage{yourpackage}\n@end preamble\n```\n')
+    preamble = result.split('\\begin{document}')[0]
+    assert 'yourpackage' not in preamble
+
+
+#: The body of the sweep below, written at its fence's own indent.  It
+#: holds every line a fence has ever lost: one quoted fence line -- one, so
+#: that a pass tracking fences on its own ends up inverted rather than back
+#: in step -- a '%' that is content, an '@preamble' that is an example of
+#: one, a line indented inside the listing, and a blank line.
+SWEEP_BODY = [
+    'keep me',
+    '        ```c',            # quoted, deeper than a closer may be
+    '',
+    '    indented inside',
+    '% a comment that is content',
+    '@preamble',
+    '\\usepackage{yourpackage}',
+    '@end preamble',
+]
+
+
+def test_every_shape_of_fence_keeps_its_body(convert):
+    """The invariant the three parts have to agree on, swept over the
+shapes a fence comes in: a listing is its body and nothing else, dedented
+by the opener's indent and no further.
+
+Each of the last three releases fixed one of those parts against the one
+deck that had been reported, and each fix left the parts further apart.
+A single shape proves nothing here -- the tab tests passed through a
+release in which every tab-opened listing came out flush left, because
+their bodies were one unindented line with nothing to lose, and the test
+quoting a fence passed through this one because it quoted a matched pair
+and the drift cancelled.  Hence the cross product.
+
+52 of these 84 shapes were wrong in 0.3.0."""
+    bad = []
+    for indent, marker, rel in itertools.product(
+            ['', '  ', '    ', '\t', '\t\t', '   \t', '      '],
+            ['```', '~~~', '````'],
+            [0, 2, 4, 8]):
+        inner = indent + ' ' * rel
+        result = convert(
+            '---\ntitle: T\n---\n\n# S\n\n'
+            + '%s%smarkdown\n' % (indent, marker)
+            + ''.join((inner + line).rstrip() + '\n' for line in SWEEP_BODY)
+            + '%s%s\n' % (indent, marker)
+            + '\nafter the listing\n')
+        shape = 'indent=%r marker=%r rel=%d' % (indent, marker, rel)
+        preamble, _, doc = result.partition('\\begin{document}')
+
+        if 'yourpackage' in preamble:
+            bad.append(shape + ': hoisted into the preamble')
+            continue
+        if doc.count('\\begin{lstlisting}') != 1:
+            bad.append(shape + ': %d listings'
+                       % doc.count('\\begin{lstlisting}'))
+            continue
+        if 'after the listing' not in doc:
+            bad.append(shape + ': swallowed what followed it')
+            continue
+
+        got = doc.split('\\begin{lstlisting}')[1].split('\n', 1)[1]
+        got = got.split('\\end{lstlisting}')[0]
+        want = ''.join((' ' * rel + line).rstrip() + '\n'
+                       for line in SWEEP_BODY)
+        if got != want:
+            bad.append('%s:\n   want %r\n   got  %r' % (shape, want, got))
+
+    assert not bad, '%d of 84 shapes:\n%s' % (len(bad), '\n'.join(bad))
+
+
+@pytest.mark.parametrize('line', ['```C', '``` done'], ids=['lang', 'words'])
+def test_a_fence_with_an_info_string_does_not_close_one(render, line):
+    """A closing fence has nothing on it but whitespace.  The passes
+before the parser matched the backticks and stopped looking, so a listing
+quoting ```` ```C ```` ended there for them and not for the parser -- the
+same disagreement as above, reached by a different line."""
+    body = render('# S\n\n```markdown\n%s\n'
+                  '%% a comment line that belongs to the listing\n```\n' % line)
+    assert '% a comment line that belongs to the listing' in body
+
+
 def test_indented_prose_is_reported_once_it_stops_being_a_listing(render,
                                                                   capsys):
     """Refusing silently is a trap on a deck written before this: what was
@@ -801,13 +936,22 @@ them one pattern."""
     assert '% still content' in body
 
 
-def test_the_code_fence_pattern_is_defined_once(jimbeamer):
-    """It was defined twice, the second more strictly than the first, and
-the redefinition won everywhere -- including for the ':::' it was not
-written for.  Two names, one of them invisible, is how issue #12 hid."""
+def test_the_fence_rules_are_written_down_once(jimbeamer):
+    """Three parts of the module have to agree on where a fence starts and
+stops -- the parser, the preamble splitter and the comment stripper --
+and for three releases running they each decided for themselves.  Every
+fix went into whichever one the bug was filed against and moved it out of
+step with the other two, so the next report was the same bug wearing a
+different hat: issue #12, then a listing torn at a quoted fence, then a
+'%' line deleted and an '@preamble' hoisted out of the listing explaining
+them.
+
+Fence is the one place now.  A second spelling of either pattern is that
+drift starting over, which is what this counts."""
     import inspect
     source = inspect.getsource(jimbeamer)
-    assert source.count('CODE_FENCE_RE = re.compile') == 1
+    assert source.count('`{3,}') == 1       # the opener, in Fence.OPEN_RE
+    assert source.count('(`+|~+)') == 1     # the closer, in Fence.CLOSE_RE
 
 
 def test_an_indented_block_is_not_a_listing(render):
