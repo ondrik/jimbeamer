@@ -968,6 +968,15 @@ The ones that have actually cost time:
   else, so an indented `@block` or `\begin{...}` is still what it says it
   is — line it up with the list item or the column it belongs to.
 
+  Which is the thing to check when upgrading a deck written for an older
+  version, where four spaces made a listing. Indented text is prose now,
+  and prose goes to LaTeX untouched, so an `&` or a `_` in it stops the
+  build — the converter says so on stderr. An indented line beginning `@`
+  is a **directive**: a crontab snippet of `@daily …` becomes
+  `\begin{daily}`, and an indented `@preamble` is hoisted into the preamble
+  and leaves the slide. Nothing warns about those two, because at any other
+  indentation they are what you asked for. Fence anything that is code.
+
 
 ## What it does not do
 

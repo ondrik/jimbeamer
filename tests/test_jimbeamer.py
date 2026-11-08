@@ -694,6 +694,8 @@ dropping one silently breaks every deck that used it."""
     pytest.param('', 'top-level'),
     pytest.param('    ', 'four-spaces'),
     pytest.param('        ', 'eight-spaces'),
+    pytest.param('\t', 'tab'),
+    pytest.param('\t\t', 'two-tabs'),
 ])
 def test_a_fence_is_a_fence_at_any_indent(render, indent, id_):
     """marko caps the opener at three spaces, and the closer again inside
@@ -708,11 +710,23 @@ nothing said."""
     assert 'texttt' not in body
 
 
+@pytest.mark.parametrize('indent', ['    ', '\t'])
+def test_a_listing_may_quote_an_indented_fence(render, indent):
+    """Dropping marko's cap on the closing fence outright let any fence
+line close the block, so a deck explaining this format -- a listing with
+an indented ```` ``` ```` inside it -- was torn in two at the quoted
+line.  The cap is kept, measured from the opener rather than the margin."""
+    body = render('# S\n\n```markdown\nlike this:\n%s```C\n%sint x;\n%s```\n'
+                  'and that is all\n```\n' % (indent, indent, indent))
+    assert 'and that is all' in body
+    assert body.count('\\begin{lstlisting}') == 1
+
+
 def test_an_indented_fence_closes_where_it_says(render):
     """The closing fence is capped separately, in parse() rather than in a
 pattern, so the opener alone was not enough: the listing ran past its own
 closer and swallowed what followed."""
-    body = render('# S\n\n@column 0.5\n\n    ```C\n    int x;\n    ```\n\n'
+    body = render('# S\n\n@column 0.5\n\n\t```C\n\tint x;\n\t```\n\n'
                   '@end column\n')
     assert '\\begin{lstlisting}[language={C}]\nint x;\n\\end{lstlisting}' in body
     assert '@end column' not in body

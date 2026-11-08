@@ -1423,12 +1423,25 @@ the body, so capturing all of it is also what keeps the code aligned.
 """
 
     override = True
-    pattern = re.compile(r'( *)(`{3,}|~{3,})[^\n\S]*(.*?)$', re.MULTILINE)
+    #: '[ \t]', not ' ': a tab is indentation everywhere else in this
+    #: module, and a fence opened with one fell through the very hole
+    #: this class exists to close.
+    pattern = re.compile(r'([ \t]*)(`{3,}|~{3,})[^\n\S]*(.*?)$', re.MULTILINE)
 
     #: the closing fence, which marko caps in parse() rather than in a
     #: pattern of its own, so the body is copied from it to change the one
     #: place that matters.  Checked against marko 2.2.5.
-    close = re.compile(r' *(~+|`+)[^\n\S]*$', re.MULTILINE)
+    #:
+    #: The indent is captured rather than discarded.  Dropping marko's cap
+    #: outright let any fence line close the block, so a listing quoting an
+    #: indented fence -- a deck explaining this format, say -- was torn in
+    #: two at the quoted line.  The cap is kept, measured from the opener
+    #: instead of from the margin.
+    close = re.compile(r'([ \t]*)(~+|`+)[^\n\S]*$', re.MULTILINE)
+
+    #: how much further than its opener a closing fence may be indented,
+    #: which is CommonMark's allowance, now relative rather than absolute
+    close_slack = 3
 
     @classmethod
     def parse(cls, source):
@@ -1442,7 +1455,9 @@ the body, so capturing all of it is also what keeps the code aligned.
                 break
             source.consume()
             end = cls.close.match(line)
-            if end and info.leading in end.group(1):
+            if end and info.leading in end.group(2) \
+                    and len(end.group(1).expandtabs(4)) \
+                    <= len(info.prefix.expandtabs(4)) + cls.close_slack:
                 break
 
             prefix_len = source.match_prefix(info.prefix, line)
