@@ -254,6 +254,36 @@ a bare title as Markdown.
   note saying why `\sectionname` is not used. Any assertion that something is
   *absent* from the template must go through `without_comments()` in the
   tests; the same care is needed when grepping by hand.
+- **Three parts of the module decide where a fenced code block begins and
+  ends**: `FencedCode`, which makes the listing, and the two passes that run
+  before marko -- `split_preamble` and `strip_comments` -- which have to
+  leave a listing's contents alone. They have to agree to the line, and for
+  three releases running they did not. Each release fixed whichever one the
+  reported deck exercised, and each fix moved that one further from the other
+  two, so the next report was the same bug wearing a different hat: issue
+  #12, then a listing torn in two at a fence it was quoting, then a `%` line
+  deleted and an `@preamble` hoisted out of the listing explaining them --
+  which reaches LaTeX as `File 'yourpackage.sty' not found`. The rules live
+  in `Fence` now, and `LiteralScanner` is the state machine both passes
+  share; nothing else may spell the pattern, which
+  `test_the_fence_rules_are_written_down_once` counts.
+- **One fence shape proves nothing.** Each of those three rounds shipped with
+  a green suite. The tab tests passed through a release in which every
+  tab-opened listing came out flush left, because their bodies were a single
+  unindented line with nothing to lose; the test quoting a fence passed
+  through the next one because it quoted a matched *pair*, and the drift
+  cancelled out. An odd number of quoted fence lines is what leaves the
+  passes inverted. `test_every_shape_of_fence_keeps_its_body` sweeps the
+  cross product instead -- 52 of its 84 shapes were wrong in 0.3.0.
+- **marko's `Source.match_prefix` measures the line in expanded columns and
+  the prefix in characters**, so a prefix holding a tab matches nothing and
+  the caller falls back to `line.lstrip()` -- which also eats the newline,
+  so blank lines vanish outright. `strip_indent()` is here for that reason;
+  do not go back to `match_prefix` for anything that may be tab-indented.
+- The recovered lecture (`git show 3c59e82:simplified.md`) is the regression
+  deck, but it is a **weak** one for anything to do with fences: every fence
+  in it is at relative indent 0 or 2. Byte-identical output there is
+  necessary and nowhere near sufficient.
 - The `opts` fixture must take `jimbeamer` as a parameter; without it the name
   resolves to the fixture object the decorator left behind rather than to the
   module, and most of the suite fails at once with `AttributeError:
