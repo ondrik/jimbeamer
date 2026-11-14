@@ -225,9 +225,29 @@ syn region jimbeamerHtmlComment start=/<!--/ end=/-->/ keepend
 " Code fences, so that a '%' or a '@' inside one is not mistaken for ours
 " ---------------------------------------------------------------------------
 
-syn region jimbeamerCodeFence matchgroup=jimbeamerCodeDelim
-      \ start=/^\s*\z(`\{3,}\|\~\{3,}\)\s*\%([A-Za-z0-9_+-]*\)/
-      \ end=/^\s*\z1\s*$/ keepend
+" Two regions rather than one, split on the fence character, because a
+" closer may be longer than its opener -- the converter closes '```' on
+" '`````' -- and one region cannot say "more of whatever \z1 was made of"
+" without also letting tildes close a backtick fence.
+"
+" \z1 is the opener's indent and \z2 its run of fence characters.  The
+" closer may be indented up to three columns past the opener, which is
+" the converter's allowance, or else sit at the margin.  Three
+" *spaces*, not three \s: a tab is four columns and so is already too far,
+" and counting it as one character is how a tab-indented fence quoted
+" inside a listing used to end the listing.
+"
+" The info string of a backtick fence may not hold a backtick -- CommonMark's
+" rule, and marko's -- so '```a``` b' is a paragraph, not a fence.  Anchoring
+" the start at the end of the line is what enforces it.
+syn region jimbeamerCodeFence matchgroup=jimbeamerCodeDelim keepend
+      \ start=/^\z(\s*\)\z(`\{3,}\)[^`]*$/
+      \ end=/^\z1 \{0,3}\z2`*\s*$/
+      \ end=/^\z2`*\s*$/
+syn region jimbeamerCodeFence matchgroup=jimbeamerCodeDelim keepend
+      \ start=/^\z(\s*\)\z(\~\{3,}\).*$/
+      \ end=/^\z1 \{0,3}\z2\~*\s*$/
+      \ end=/^\z2\~*\s*$/
 
 " ---------------------------------------------------------------------------
 
