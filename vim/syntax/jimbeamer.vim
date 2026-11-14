@@ -240,6 +240,13 @@ syn region jimbeamerHtmlComment start=/<!--/ end=/-->/ keepend
 " The info string of a backtick fence may not hold a backtick -- CommonMark's
 " rule, and marko's -- so '```a``` b' is a paragraph, not a fence.  Anchoring
 " the start at the end of the line is what enforces it.
+"
+" Known gap: a closer indented with different whitespace characters than its
+" opener -- a tab against four spaces -- leaves the region open, where the
+" converter closes it.  A region compares indents by text and not by column,
+" so there is nothing to write here instead; both cases left need the two
+" ends of one fence to disagree about tabs, and the colour then goes wrong
+" at the fence rather than halfway down the deck.
 syn region jimbeamerCodeFence matchgroup=jimbeamerCodeDelim keepend
       \ start=/^\z(\s*\)\z(`\{3,}\)[^`]*$/
       \ end=/^\z1 \{0,3}\z2`*\s*$/
