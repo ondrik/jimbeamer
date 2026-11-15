@@ -373,15 +373,16 @@ length, where the converter takes one at least as long. A deck closing
     probed = run_vim(tmp_path, '# S\n\n```C\nint x;\n%s\n\nafter the fence\n'
                                % closer)
     coloured = 'jimbeamerCodeFence' in groups_on(probed, 'after the fence')
-    assert coloured is not closes
+    assert coloured == (not closes)
 
 
 @vim_needed
 @pytest.mark.parametrize('indent, closes', [
     pytest.param('    ', True, id='aligned'),
     pytest.param('', True, id='at-the-margin'),
-    pytest.param('       ', True, id='three-past'),
-    pytest.param('        ', False, id='four-past'),
+    pytest.param('   ', True, id='three-from-the-margin'),
+    pytest.param('       ', True, id='three-past-the-opener'),
+    pytest.param('        ', False, id='four-past-the-opener'),
     pytest.param('\t', False, id='a-tab-is-four-columns'),
 ])
 def test_the_closing_fence_may_not_outdent_the_opener(tmp_path, indent,
@@ -391,24 +392,32 @@ so a listing quoting a bare fence further in than a closer may be --
 a deck explaining this format -- ended there, and everything after it was
 coloured back to front.
 
+A closer three columns from the margin or fewer closes whatever the opener
+was, since no indent is negative and three is therefore always within
+"opener plus three".  That is the second end pattern, and
+'three-from-the-margin' is it.
+
 The tab case is why the slack is three spaces rather than three \\s: a tab
 is four columns and so is already too far, but it is one character."""
     probed = run_vim(tmp_path, '# S\n\n    ```C\n    int x;\n%s```\n\n'
                                'after the fence\n' % indent)
     coloured = 'jimbeamerCodeFence' in groups_on(probed, 'after the fence')
-    assert coloured is not closes
+    assert coloured == (not closes)
 
 
 @vim_needed
-@pytest.mark.parametrize('quoted', ['        ```', '\t\t```'],
-                         ids=['spaces', 'tabs'])
-def test_a_listing_quoting_a_bare_fence_keeps_its_colour(tmp_path, quoted):
+@pytest.mark.parametrize('mark', ['```', '~~~'], ids=['backtick', 'tilde'])
+@pytest.mark.parametrize('pad', ['        ', '\t\t'], ids=['spaces', 'tabs'])
+def test_a_listing_quoting_a_bare_fence_keeps_its_colour(tmp_path, mark, pad):
     """Issue #23 as it is actually met: one bare fence quoted inside a
 listing. Both lines below belong to the listing and the one after it does
-not, and the file used to say the opposite of all three."""
-    probed = run_vim(tmp_path, '# S\n\n```markdown\nclose one with\n\n%s\n\n'
-                               'still inside the listing\n```\n\n'
-                               'after the fence\n' % quoted)
+not, and the file used to say the opposite of all three.
+
+Over both fence characters, because the regions are two separate code
+paths now and only the backtick one was ever pinned here."""
+    probed = run_vim(tmp_path, '# S\n\n%smarkdown\nclose one with\n\n%s%s\n\n'
+                               'still inside the listing\n%s\n\n'
+                               'after the fence\n' % (mark, pad, mark, mark))
     assert 'jimbeamerCodeFence' in groups_on(probed, 'still inside the listing')
     assert 'jimbeamerCodeFence' not in groups_on(probed, 'after the fence')
 
@@ -441,9 +450,12 @@ shared one; merged, this line stops being a fence."""
 def test_a_fence_is_not_closed_by_a_run_of_both(tmp_path, closer):
     """A closer is one character repeated and nothing else, so neither of
 these closes anything -- the converter's CLOSE_RE matches one run and
-then insists on the end of the line. Spelling the two regions as one and
-letting '[`~]*' carry the extra length is the obvious shortcut, and this
-is what it would cost."""
+then insists on the end of the line.
+
+Only 'backtick-first' pays for the split: merge the regions, let '[`~]*'
+carry the extra length, and that one starts closing the fence.
+'tilde-first' never matches \\z2 at the start of the line either way, so it
+is a plain regression guard rather than evidence for the split."""
     probed = run_vim(tmp_path, '# S\n\n```C\nint x;\n%s\n\n'
                                'after the fence\n' % closer)
     assert 'jimbeamerCodeFence' in groups_on(probed, 'after the fence')
