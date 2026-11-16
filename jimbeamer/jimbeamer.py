@@ -258,12 +258,31 @@ The rules are here now, and all three ask rather than decide.
     #: of backticks is an indented code block instead.  This format has no
     #: indented code block (see CodeBlock), and a fence lined up under a
     #: second-level bullet is four columns in, so there is no cap.
+    #:
+    #: The '[^\n\S]' here is deliberately left as it is, where the closer's
+    #: was narrowed to spaces and tabs.  It only divides the marker from
+    #: the info string, so whatever it eats cannot move where a fence
+    #: begins or ends: the line opens one either way, and the passes read
+    #: nothing off it but the backtick rule below.  Narrowed, a no-break
+    #: space after the backticks would land *inside* the info string, where
+    #: marko's own partition_by_spaces -- spaces and tabs, like the spec --
+    #: would leave it, and the language handed to listings would be a
+    #: no-break space followed by 'C', which it has never heard of.
+    #: Trimming it is the friendlier reading of a typo, and nothing
+    #: disagrees with it.
     OPEN_RE = re.compile(r'([ \t]*)(`{3,}|~{3,})[^\n\S]*(.*?)$', re.MULTILINE)
 
     #: A closing fence: the same character as the opener and at least as
-    #: many of them, with nothing but whitespace after.  That anchor is
-    #: what keeps '```C' an opener rather than a closer.
-    CLOSE_RE = re.compile(r'([ \t]*)(`+|~+)[^\n\S]*$', re.MULTILINE)
+    #: many of them, with nothing after it but spaces and tabs.  That
+    #: anchor is what keeps '```C' an opener rather than a closer.
+    #:
+    #: Spaces and tabs, written out, where this used to say '[^\n\S]':
+    #: '\S' on a str pattern is Unicode aware, so a no-break space, an en
+    #: quad or an ideographic space after the backticks closed the listing
+    #: here while CommonMark -- "spaces and tabs" since 0.30 -- and the vim
+    #: syntax file, whose '\s' is the two of them, both left it open.  The
+    #: converter was the permissive one of the three; issue #26.
+    CLOSE_RE = re.compile(r'([ \t]*)(`+|~+)[ \t]*$', re.MULTILINE)
 
     #: How much further than its opener a closing fence may be indented:
     #: CommonMark's three columns, measured from the opener rather than
@@ -526,6 +545,11 @@ MARKDOWN_METADATA = ('title', 'subtitle', 'author', 'institute', 'date',
 # frame containing raw LaTeX still gets [fragile].
 VERBATIM_RE = re.compile(r'\\begin\{(?:lstlisting|verbatim|Verbatim|alltt'
                          r'|minted|semiverbatim)\}|\\verb|\\lstinline')
+
+# What an editor that announces UTF-8 writes before the first character.
+# Only ever stripped at the very start of a document: anywhere else U+FEFF
+# is a zero-width no-break space and belongs to whoever typed it.
+BYTE_ORDER_MARK = '\ufeff'
 
 # A YAML metadata block, fenced by '---' and closed by '---' or '...'.  Only
 # recognized at the very start of the document, where CommonMark would
@@ -830,6 +854,33 @@ message at all.
 
 
 ###########################################
+def strip_byte_order_mark(text):
+    r"""strip_byte_order_mark(str) -> str
+
+`text' without a byte-order mark in front of it.
+
+A deck written by an editor that marks its UTF-8 begins with U+FEFF, and
+that character is not whitespace, so the first line of the deck stopped
+being whatever it was: Fence.OPEN_RE begins '[ \t]*', which the mark does
+not match, so a deck opening with '~~~' had no fence in it at all and its
+markup reached LaTeX as prose.  Nothing complained, which is what made it
+worth a function: pdflatex builds that document, typesets the '~~~' as
+three non-breaking spaces and the mark as nothing, and the slide comes out
+holding the listing's text with the listing gone.  FRONTMATTER_RE is
+anchored with \A, so a metadata block went the same way -- the deck lost
+its title and had the YAML typeset on the first slide instead, the '---'
+having become a setext heading.  vim takes the mark off into its 'bomb'
+option and colours a fence, which is how the disagreement was found.
+
+Only at the start of the document.  A U+FEFF further in is a zero-width
+no-break space that somebody meant to type.
+"""
+    if text.startswith(BYTE_ORDER_MARK):
+        return text[len(BYTE_ORDER_MARK):]
+    return text
+
+
+###########################################
 def split_frontmatter(text):
     """split_frontmatter(str) -> (dict, str)
 
@@ -856,6 +907,39 @@ numbers in the body still match the input file.
                  % (PROG, type(meta).__name__))
 
     return meta, '\n' * match.group(0).count('\n') + text[match.end():]
+
+
+###########################################
+def normalize_newlines(text):
+    """normalize_newlines(str) -> str
+
+`text' with every line ending spelled as a newline, which is what marko
+makes of it anyway: its own preprocessing turns a CRLF, a lone carriage
+return and a form feed into one before a block parser sees the document.
+
+The two passes that run before marko have to see the lines marko will see,
+and a deck arriving over stdin -- this command's default input -- still
+has its carriage returns.  A named file does not: open() is in text mode
+and translates them.  stdin is not opened but reconfigured, and the
+standard streams are created with newline='\\n' rather than universal
+newlines, so nothing translates anything there.
+
+With the carriage return still on the line, '@preamble' and '@end
+preamble' both end in '[ \\t]*$' and so matched neither: a CRLF deck had
+its preamble block left where it was written and reaching LaTeX as
+'\\begin{preamble}', an environment nothing defines.  Narrowing the
+closing fence to spaces and tabs would have added the listing to that
+tally -- closed for marko, still open for the passes, which is the
+three-way disagreement Fence exists to end.
+
+The form feed is on the list because marko's is.  CommonMark ends a line
+on neither it nor a vertical tab, but marko does end one on a form feed,
+so a '```' followed by one closes the listing for the parser whatever this
+module thinks of it; translating it here is what keeps the passes of the
+same opinion.  It changes nothing downstream, the text they hand on being
+preprocessed by marko in any case.
+"""
+    return text.replace('\r\n', '\n').replace('\r', '\n').replace('\f', '\n')
 
 
 ###########################################
@@ -1531,7 +1615,7 @@ what keeps it in step with the two passes that run before it.
 
     @classmethod
     def parse(cls, source):
-        """Copied from marko 2.2.5 and changed in the two places marked.
+        """Copied from marko 2.2.5 and changed in the three places marked.
 
 marko caps the closing fence in parse() rather than in a pattern of its
 own, which is why the body is here at all.
@@ -1541,15 +1625,55 @@ own, which is why the body is here at all.
         lines = []
         info = source.context.code_info
         fence = Fence(info.prefix, info.leading)        # changed: the rules
+        closed = False                                  # changed: the warning
         while not source.exhausted:
             line = source.next_line()
             if line is None:
                 break
             source.consume()
             if fence.closes(line):                      # changed: the rules
+                closed = True                           # changed: the warning
                 break
 
             lines.append(strip_indent(line, fence.indent))
+
+        # The loop ends in one of three ways: the closing fence, the end of
+        # the file, or -- inside a list item, a column or any other
+        # container -- the end of that container.  Only the first is a
+        # closed fence, and the other two are the same mistake told twice.
+        #
+        # A closer written at the margin under an item it was opened in,
+        #
+        #     - an item
+        #       ```C
+        #       int x;
+        #     ```
+        #
+        # does not belong to the item, so the item ends, the fence is
+        # closed by running out of container, and the ``` line is read
+        # again at top level as a *new* opener that runs to the end of the
+        # deck.  The heading after it and its prose come out inside a
+        # listing, two frames become one, and in this shape nothing was
+        # printed at all.  A '@end column' goes the same way -- the
+        # directive is typeset as code and the column stays open -- and
+        # with a lazy continuation a body line is lost outright and the
+        # listing comes out empty.
+        #
+        # The end of the file warns too: that is the same loss with the
+        # deck ending inside the listing instead of a frame being
+        # swallowed, and an unclosed '@preamble' at the end of the file is
+        # already reported by split_preamble() for the same reason.
+        #
+        # No line number is given because there is none to give:
+        # strip_comments() deletes lines before marko ever counts them.
+        # The opener's own info string names the fence instead, which is
+        # what the author can grep for.
+        if not closed:                                  # changed: the warning
+            opener = info.leading + ('%s %s' % (info.lang,
+                                                info.extra)).strip()
+            print("%s: warning: the '%s' fence was never closed; a closing"
+                  ' fence lines up with its opener' % (PROG, opener),
+                  file=sys.stderr)
         return info.lang, info.extra, ''.join(lines)
 
 
@@ -2821,6 +2945,16 @@ parse() is the hook marko documents for preprocessing the text, and doing it
 here rather than in convert() means anything that parses a document gets it,
 the tests included.
 
+The line endings are normalized first, because both passes work a line at a
+time and marko will cut the lines its own way regardless: see
+normalize_newlines().  A leading byte-order mark goes with them, and for
+the same reason it goes in convert(): a document can arrive by either
+door, and a rule applied at one of them is the drift this module keeps
+paying for.  convert() cannot be the only place, because the tests and any
+library caller reach marko through here; here cannot be the only place,
+because FRONTMATTER_RE is anchored at the first character and runs before
+this does.
+
 What the preamble blocks held is left on the instance for convert() to pick
 up; a caller rendering a body and no document, as the tests do, simply does
 not ask.
@@ -2830,6 +2964,7 @@ not ask.
     preamble = ''
 
     def parse(self, text):
+        text = normalize_newlines(strip_byte_order_mark(text))
         self.preamble, text = split_preamble(text)
         return super().parse(strip_comments(text))
 
@@ -2872,7 +3007,16 @@ def convert(text, template, opts):
 
 Converts the Markdown source `text' into a complete Beamer document.
 """
-    meta, body = split_frontmatter(text)
+    # Every document arrives here and nothing reads one earlier: the command
+    # hands over what it read from the file or from stdin, split_frontmatter()
+    # and the passes behind BeamerMarkdown.parse() all run below, and --pdf
+    # takes its name from the path rather than the text.  So the byte-order
+    # mark comes off here, and not at the three doors into this -- open_file()
+    # would miss stdin, which is reconfigured rather than opened, and both
+    # would miss this function, which the tests and any other caller use.
+    # It has to happen before split_frontmatter(), whose pattern is anchored
+    # at the very first character.
+    meta, body = split_frontmatter(strip_byte_order_mark(text))
 
     # -V overrides the metadata block before anything is derived from it, so
     # that '-V title=...' also reaches the short title in the footline.

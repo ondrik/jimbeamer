@@ -482,6 +482,34 @@ length, where the converter takes one at least as long. A deck closing
 
 
 @vim_needed
+@pytest.mark.parametrize('trailer, closes', [
+    pytest.param(' ', True, id='space'),
+    pytest.param('\t', True, id='tab'),
+    pytest.param('\u00a0', False, id='nbsp'),
+    pytest.param('\u2000', False, id='en-quad'),
+])
+def test_the_closing_fence_takes_the_spaces_the_converter_takes(tmp_path,
+                                                                render,
+                                                                trailer,
+                                                                closes):
+    """Issue #26. CommonMark lets spaces and tabs follow a closer and
+nothing else, and vim's '\\s' is those two. CLOSE_RE said '[^\\n\\S]',
+where '\\S' on a str pattern is Unicode aware, so every space Unicode
+knows of closed the fence for the converter and none of them for the
+syntax file: a listing with a no-break space after its backticks was
+coloured as code to the end of the deck and converted as prose.
+
+Both are asked here, because a test of either on its own passes happily
+while the two disagree -- which is how this lasted."""
+    deck = '# S\n\n```C\nint x;\n```%s\n\nafter the fence\n' % trailer
+    probed = run_vim(tmp_path, deck)
+    coloured = 'jimbeamerCodeFence' in groups_on(probed, 'after the fence')
+    outside = 'after the fence' in render(deck).split('\\end{lstlisting}')[-1]
+    assert coloured == (not closes)
+    assert outside == closes
+
+
+@vim_needed
 @pytest.mark.parametrize('indent, closes', [
     pytest.param('    ', True, id='aligned'),
     pytest.param('', True, id='at-the-margin'),
