@@ -67,6 +67,10 @@ int main(void) { return 0; }
 \\bigvee_i a_i
 \\]
 
+$$
+\\sum_i x_i
+$$
+
 inline \\(x_3\\) and a citation \\[Clarke 81\\] mid-sentence
 
 \\[0, 1) is an interval, not an opener
@@ -96,6 +100,9 @@ inline \\(x_3\\) and a citation \\[Clarke 81\\] mid-sentence
 a citation [\\[Clarke 81\\]]{.hlvio} inside a span
 
 ==highlighted== and [red]{.hlrd}
+
+a `code span`, ``one with a ` inside`` and one that `wraps over
+the line break` too
 
 a span that [wraps across
 a line]{.hlgr}, and ==a highlight
@@ -224,6 +231,10 @@ def example(tmp_path_factory):
     pytest.param('pandoc & the obvious', 'jimbeamerLatexEnv', id='latex-env'),
     pytest.param('$x_1 \\land y_2$', 'jimbeamerMath', id='maths'),
     pytest.param('\\bigvee_i a_i', 'jimbeamerMathBracket', id='display-maths'),
+    pytest.param('\\sum_i x_i', 'jimbeamerMathDisplay', id='dollar-maths'),
+    pytest.param('a `code span`', 'jimbeamerInlineCode', id='code-span'),
+    pytest.param('``one with a ` inside``', 'jimbeamerInlineCode',
+                 id='code-span-holding-a-backtick'),
     pytest.param('\\(x_3\\)', 'jimbeamerMathParen', id='latex-inline-maths'),
     pytest.param('(a) a lettered', 'jimbeamerListMarker', id='lettered'),
     pytest.param('(ii) a roman', 'jimbeamerListMarker', id='roman'),
@@ -248,6 +259,7 @@ def test_a_slide_key_it_knows_is_told_from_one_it_does_not(sample):
 @pytest.mark.parametrize('needle, group', [
     pytest.param('a span that [wraps across', 'jimbeamerSpan', id='span'),
     pytest.param('that wraps== too', 'jimbeamerHighlight', id='highlight'),
+    pytest.param('the line break`', 'jimbeamerInlineCode', id='code-span'),
 ])
 def test_an_inline_span_may_wrap(sample, needle, group):
     """Prose is wrapped, and the converter reads these across a line break.
@@ -356,6 +368,99 @@ so the first heading of the deck came out greyed."""
     probed = run_vim(tmp_path, opener + '\n# After\n\n* a list\n')
     assert 'jimbeamerHeading' in groups_on(probed, needle)
     assert 'markdownListMarker' in groups_on(probed, '* a list')
+
+
+@vim_needed
+@pytest.mark.parametrize('opener', [
+    pytest.param('---\ntitle: T\n', id='frontmatter'),
+    pytest.param('`\n', id='code-span'),
+    pytest.param('$$\n', id='dollar-maths'),
+    pytest.param('===\n', id='slide-block'),
+    pytest.param('\\[\n', id='escaped-bracket'),
+    pytest.param('a <!--\n', id='html-comment'),
+])
+def test_a_fence_under_an_unterminated_region_is_still_a_listing(tmp_path,
+                                                                 opener):
+    """Issue #26, and the other half of the one above: a heading ends each
+of these, so the runaway stopped at the next frame -- but between the
+opener and that heading a listing was still swallowed, and came out
+coloured as YAML, as maths or as a comment.  The converter makes every one
+of these decks an lstlisting, so a fence ends them here as well.
+
+A fence rather than any line holding backticks, because '===' and '$$' and
+'\\[' all legitimately hold text, and ending them on their own contents is
+the regression this guards."""
+    probed = run_vim(tmp_path, opener + '```C\nint body;\n```\n')
+    assert 'jimbeamerCodeFence' in groups_on(probed, 'int body;')
+
+
+@vim_needed
+def test_a_tilde_fence_stops_them_too(tmp_path):
+    """The guard names both fence characters, since both open a listing.
+Only the backtick half was reported, and only the backtick half would have
+been noticed."""
+    probed = run_vim(tmp_path, '$$\n~~~C\nint body;\n~~~\n')
+    assert 'jimbeamerCodeFence' in groups_on(probed, 'int body;')
+
+
+@vim_needed
+@pytest.mark.parametrize('deck, needle, group', [
+    pytest.param('# S\n\n===\nlabel: three ``` in a value\ntitle: T\n'
+                 '---\n\nx\n',
+                 'title: T', 'jimbeamerSlideMeta', id='slide-block'),
+    pytest.param('# S\n\n$$\nx = a ``` b\n\\sum_i y\n$$\n\nafter\n',
+                 '\\sum_i y', 'jimbeamerMathDisplay', id='dollar-maths'),
+])
+def test_only_a_line_that_opens_a_fence_ends_them(tmp_path, deck, needle,
+                                                  group):
+    """The other side of the guard above.  '===' and '$$' and '\\[' all
+hold text, so the pattern is the whole of a fence's opening line and not
+merely a run of backticks somewhere on one -- loosen it and a region ends
+on its own contents.  Three backticks mid-line is the worst case rather
+than a deck shape: it is what tells a sloppy guard from this one."""
+    probed = run_vim(tmp_path, deck)
+    assert group in groups_on(probed, needle)
+
+
+@vim_needed
+def test_a_commented_out_listing_stays_a_comment(tmp_path):
+    """The exception to the rule above, and the reason '<!--' is two
+regions rather than one.  Beginning a line it is an HTML block, and the
+converter removes the block whole -- a listing inside one is comment and
+not a listing.  Ending it at a fence, the way the inline '<!--' now ends,
+would colour a commented-out slide as live code."""
+    probed = run_vim(tmp_path, '# S\n\n<!--\n```C\nint hidden;\n```\n-->\n\n'
+                               'after the comment\n')
+    assert 'jimbeamerHtmlComment' in groups_on(probed, 'int hidden;')
+    assert 'jimbeamerCodeFence' not in groups_on(probed, 'int hidden;')
+    assert not groups_on(probed, 'after the comment')
+
+
+@vim_needed
+def test_a_code_span_is_closed_by_a_run_of_its_own_length(tmp_path):
+    """CommonMark's rule, and the one markdown.vim's own region broke: it
+closed a run of any length with the first backtick of the next run, so
+'`a ``` b`' ended in the middle and the rest of the paragraph was coloured
+back to front.  Ending a span at a fence, which is what the case above
+needed, does not cover this one -- there is no fence line here to end
+anything."""
+    probed = run_vim(tmp_path,
+                     '# S\n\na `span with ``` three in it` and so on\n'
+                     'plain prose\n')
+    assert 'jimbeamerInlineCode' in groups_on(probed, 'a `span with')
+    assert 'jimbeamerInlineCode' not in groups_on(probed, 'plain prose')
+
+
+@vim_needed
+def test_a_backtick_inside_a_links_text_swallows_nothing(tmp_path):
+    """markdown.vim's code span is in its @markdownInline cluster, so
+markdownLinkText can still reach it however ours is defined, and from in
+there it ran to the end of the file as it always did.  Clearing it is what
+stops that, and the cost is recorded beside the rule: a code span inside a
+link's text is no longer told apart from the link text."""
+    probed = run_vim(tmp_path, '# S\n\n[link `a](http://x)\n'
+                               '```C\nint body;\n```\n')
+    assert 'jimbeamerCodeFence' in groups_on(probed, 'int body;')
 
 
 @vim_needed
