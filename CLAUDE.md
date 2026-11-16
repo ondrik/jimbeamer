@@ -284,6 +284,16 @@ a bare title as Markdown.
   deck, but it is a **weak** one for anything to do with fences: every fence
   in it is at relative indent 0 or 2. Byte-identical output there is
   necessary and nowhere near sufficient.
+- **A vim region that cannot look ahead must end where the converter's block
+  ends, which means at a fence as well as at a heading.** This family has now
+  been fixed twice: issue #13 was four regions running to the end of the file
+  when their terminator never came, and #26 was five of them swallowing the
+  *fence* that followed instead. The remedy both times is an extra `end=` with
+  `me=s-1`, so the line that ends the region is left for whatever claims it
+  next. When adding a region whose terminator is optional, ask what happens to
+  the rest of the file when it never arrives, and pin it with a test — the
+  syntax file has no way to say "give up here" other than by listing the
+  things that end it.
 - The `opts` fixture must take `jimbeamer` as a parameter; without it the name
   resolves to the fixture object the decorator left behind rather than to the
   module, and most of the suite fails at once with `AttributeError:

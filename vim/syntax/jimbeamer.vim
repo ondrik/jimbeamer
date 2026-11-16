@@ -54,9 +54,22 @@ syn match jimbeamerLatexMacro
 " break.  A heading ends it, which is as far wrong as it can now go: without
 " that it ran to the end of the file and painted the first heading as a YAML
 " comment, since '#' starts one inside this region.
+"
+" A fence ends it for the same reason, and this is the first of six places
+" below that say so.  The heading guard stopped the runaway at the next
+" frame; between the opener and that heading a listing was still swallowed,
+" so a deck whose front matter is missing its closing fence had its first
+" listing coloured as YAML (issue #26).  The pattern is the opening line of
+" jimbeamerCodeFence, both fence characters, and nothing else: a closer is
+" one too, which costs nothing here, but a line that merely contains
+" backticks is not, or '===' and '$$' and '\[' -- all of which legitimately
+" hold text -- would end on their own contents.  'me=s-1' leaves the fence
+" line itself free, which is what lets jimbeamerCodeFence, defined last and
+" so preferred, take it.
 syn region jimbeamerFrontMatter matchgroup=jimbeamerMetaFence
       \ start=/\%^---[ \t]*$/ end=/^\%(---\|\.\.\.\)[ \t]*$/
       \ end=/^\s*#\{1,6}\%([ \t]\|$\)/me=s-1
+      \ end=/^\s*\%(`\{3,}[^`]*\|\~\{3,}.*\)$/me=s-1
       \ keepend contains=jimbeamerMetaKey,jimbeamerMetaComment,jimbeamerMetaString
 
 " A slide's own block: '===' opens it, '---' closes it.  The asymmetry is the
@@ -65,9 +78,14 @@ syn region jimbeamerFrontMatter matchgroup=jimbeamerMetaFence
 " fence, so a blank line means this was never a block -- and a heading is
 " the frame boundary.  Both end it here, or a bare '===' swallowed the rest
 " of the slide and repainted the next frame break as a fence.
+" A fence ends it as well -- see jimbeamerFrontMatter above for the pattern
+" -- and here the converter is explicit about it: a block's content may hold
+" no code fence, so a fence line proves this was never a block.  Without it
+" '===' with a listing under it coloured the listing as metadata.
 syn region jimbeamerSlideMeta matchgroup=jimbeamerMetaFence
       \ start=/^===[ \t]*$/ end=/^\%(---\|\.\.\.\)[ \t]*$/
       \ end=/^\s*$/ end=/^\s*#\{1,6}\%([ \t]\|$\)/me=s-1
+      \ end=/^\s*\%(`\{3,}[^`]*\|\~\{3,}.*\)$/me=s-1
       \ keepend contains=jimbeamerSlideKey,jimbeamerMetaKey,jimbeamerMetaComment,
       \ jimbeamerMetaString
 
@@ -154,7 +172,14 @@ syn match jimbeamerPause /\\\%(pausex\|xpause\)\>/
 " Maths: four spellings, none of whose contents are Markdown
 " ---------------------------------------------------------------------------
 
+" A fence ends it -- see jimbeamerFrontMatter for the pattern.  '$$' with no
+" closing '$$' is the one of the six that reads most like ordinary prose,
+" and it ran to the end of the file: a '$$' left behind by an edit swallowed
+" the listing under it and coloured it as maths (issue #26).  Nothing else
+" ends it, because display maths does hold text and a blank line is legal
+" inside it.
 syn region jimbeamerMathDisplay start=/\$\$/ end=/\$\$/ keepend
+      \ end=/^\s*\%(`\{3,}[^`]*\|\~\{3,}.*\)$/me=s-1
       \ contains=jimbeamerLatexMacro
 syn region jimbeamerMath start=/\$\ze[^$ \t]/ end=/\$/ oneline keepend
       \ contains=jimbeamerLatexMacro
@@ -182,8 +207,12 @@ syn region jimbeamerMathBracket
 " unclosed opener cannot reach past it.  An opener with content after it
 " and its closer lines below ('\[ x =' ... 'y \]') is legal input and
 " goes uncoloured, which is the price of not looking ahead.
+" A fence is the third ending -- see jimbeamerFrontMatter for the pattern.
+" The blank line only bounds the runaway at the paragraph; a '\[' with a
+" listing directly under it, no blank line between, still ate the listing.
 syn region jimbeamerMathBracket
       \ start=/^\s*\\\[[ \t]*$/ end=/\\\]\ze[ \t]*$/ end=/^\s*$/
+      \ end=/^\s*\%(`\{3,}[^`]*\|\~\{3,}.*\)$/me=s-1
       \ keepend contains=jimbeamerLatexMacro
 syn region jimbeamerMathParen start=/\\(/ end=/\\)/ oneline keepend
       \ contains=jimbeamerLatexMacro
@@ -212,6 +241,43 @@ syn match jimbeamerSpanText /\[\zs\_[^]]\{-}\ze\]/ contained
 syn match jimbeamerImage /!\[[^]\n]*\]([^)\n]*)\%({[^}\n]*}\)\=/
       \ contains=jimbeamerAttributes
 
+" A code span, which markdown.vim also has and gets wrong in the one way
+" that matters here: its region runs from a backtick to the next backtick
+" anywhere in the file, so a run of three is closed by the first of them.
+" A lone '`' in prose therefore swallowed the listing below it -- the
+" fence's own line was already inside the region, and a region cannot start
+" inside one that does not contain it, so jimbeamerCodeFence never got the
+" chance to win (issue #26).  Clearing it is the same treatment
+" markdownCodeBlock gets above, except that this one has to be replaced
+" rather than merely dropped: a code span is still a code span here, and
+" jimbeamerHeading has named this group since before it existed.
+"
+" What ours says instead is what the converter does.  A run of backticks is
+" closed by a run of the same length -- CommonMark's rule, which is what
+" makes '``a`b``' one span and what keeps '```' from closing '`' -- and a
+" span lives inside one paragraph, so a blank line or a code fence ends it.
+" It is not 'oneline': prose is wrapped, and 'some `code' / 'span` here'
+" comes out as one span, the way jimbeamerSpan and jimbeamerHighlight do.
+"
+" Before jimbeamerCodeFence on purpose: a '```' with an info string holding
+" no backtick is both a fence opener and the start of a span, and of two
+" regions that can start in the same place vim takes the later.
+"
+" Cleared rather than left alongside, because the cleared one was still
+" reachable through markdown's own @markdownInline cluster and still ran
+" away from there: '[link `a](url)' with a listing below it painted the
+" listing as code from inside the link's text.  Ours is deliberately not
+" put into that cluster to take its place -- inside markdownLinkText
+" nothing but the cluster can start, so a span there would beat
+" jimbeamerCodeFence on the fence line and the listing would be swallowed
+" again.  The price is that a code span inside a link's text is no longer
+" told apart from the link text around it, which is colour and not
+" correctness.
+syn clear markdownCode
+syn region jimbeamerInlineCode matchgroup=jimbeamerCodeDelim keepend
+      \ start=/\z(`\+\)/ end=/`\@<!\z1`\@!/
+      \ end=/^\s*$/ end=/^\s*\%(`\{3,}[^`]*\|\~\{3,}.*\)$/me=s-1
+
 " ---------------------------------------------------------------------------
 " Comments
 " ---------------------------------------------------------------------------
@@ -219,7 +285,25 @@ syn match jimbeamerImage /!\[[^]\n]*\]([^)\n]*)\%({[^}\n]*}\)\=/
 " A '%' is a comment only as the first thing on its line; part-way along one
 " it is passed through to LaTeX, where it comments out the rest of the line.
 syn match jimbeamerComment /^[ \t]*%.*$/
+
+" '<!--' is two things, the way '\[' is, and the line decides which.
+"
+" Part-way along a line it is inline HTML inside a paragraph: the converter
+" drops it and keeps the prose either side, and the paragraph is as far as
+" it reaches.  So a blank line ends it, and so does a code fence -- a fence
+" interrupts a paragraph, which is the case issue #26 reports: 'a <!--'
+" with a listing directly under it coloured the listing as a comment, and
+" without a blank line anywhere below, the rest of the deck with it.
 syn region jimbeamerHtmlComment start=/<!--/ end=/-->/ keepend
+      \ end=/^\s*$/ end=/^\s*\%(`\{3,}[^`]*\|\~\{3,}.*\)$/me=s-1
+
+" Beginning a line it is an HTML block instead, and the converter removes
+" the block whole: a listing commented out inside one is comment and not a
+" listing, so no fence may end this and the region runs to '-->' alone.
+" Unterminated it reaches the end of the file -- which is what the
+" converter does with it too, so for once the runaway is the right colour.
+" Last of the two, so that it wins the line it begins.
+syn region jimbeamerHtmlComment start=/^\s*<!--/ end=/-->/ keepend
 
 " ---------------------------------------------------------------------------
 " Code fences, so that a '%' or a '@' inside one is not mistaken for ours
@@ -302,6 +386,7 @@ hi def link jimbeamerSpanText         Normal
 hi def link jimbeamerImage            Underlined
 hi def link jimbeamerComment          Comment
 hi def link jimbeamerHtmlComment      Comment
+hi def link jimbeamerInlineCode       String
 
 " Both metadata blocks, the environments and the wrapped inline spans can
 " all start well above the window, so looking back a little is necessary.
