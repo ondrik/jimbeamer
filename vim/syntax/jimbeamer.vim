@@ -343,21 +343,32 @@ syn region jimbeamerHtmlComment start=/^\s*<!--/ end=/-->/ keepend
 " most a region that compares indents as text rather than as columns can say.
 " Both need the two ends of one fence to disagree about their indent, and the
 " colour then goes wrong at the fence rather than halfway down the deck.
+" A list marker may stand in front of the opener -- '- ```' makes the item's
+" own content a listing -- and is matched but deliberately NOT captured into
+" \z1, which stays the indent alone.  Captured, the closer would have to
+" repeat the marker and would never match, and the region would run away
+" instead; left out, the closer is measured from the margin, which is where
+" the item's content starts for every marker narrow enough to fit in the
+" three columns the second end pattern allows.  Wide ones ('+   ```',
+" '10. ```') still open a fence the closer cannot end, because the content
+" column is the marker's width and that is a measurement, not a text.
 "
-" A second gap, and marko's doing rather than anybody's pattern: a form feed
-" after the closing backticks ends the line for marko, so the converter
-" closes the fence there and this region does not.  Every other space that
-" is not a space or a tab -- a no-break space, an en quad -- used to close it
-" for the converter and not here, which was the divergence that mattered;
-" CLOSE_RE says '[ \t]*$' now, as this does (issue #26).
+" '[ \t\d12]' rather than '[ \t]': a form feed is decimal 12, and marko turns
+" one into a newline before any block parser runs, so the converter closes a
+" fence at '```<FF>'.  Vim collections do not translate '\f', hence the
+" decimal.
+"
+" Exotic whitespace after the backticks -- a no-break space, an en quad --
+" used to close a fence for the converter and not here; CLOSE_RE says
+" '[ \t]*$' now, as these do (issue #26, group B).
 syn region jimbeamerCodeFence matchgroup=jimbeamerCodeDelim keepend
-      \ start=/^\z(\s*\)\z(`\{3,}\)[^`]*$/
-      \ end=/^\z1 \{0,3}\z2`*\s*$/
-      \ end=/^ \{0,3}\z2`*\s*$/
+      \ start=/^\z(\s*\)\%(\%([-*+]\|\d\{1,9}[.)]\)\s\+\)\=\z(`\{3,}\)[^`]*$/
+      \ end=/^\z1 \{0,3}\z2`*[ \t\d12]*$/
+      \ end=/^ \{0,3}\z2`*[ \t\d12]*$/
 syn region jimbeamerCodeFence matchgroup=jimbeamerCodeDelim keepend
-      \ start=/^\z(\s*\)\z(\~\{3,}\).*$/
-      \ end=/^\z1 \{0,3}\z2\~*\s*$/
-      \ end=/^ \{0,3}\z2\~*\s*$/
+      \ start=/^\z(\s*\)\%(\%([-*+]\|\d\{1,9}[.)]\)\s\+\)\=\z(\~\{3,}\).*$/
+      \ end=/^\z1 \{0,3}\z2\~*[ \t\d12]*$/
+      \ end=/^ \{0,3}\z2\~*[ \t\d12]*$/
 
 " ---------------------------------------------------------------------------
 
