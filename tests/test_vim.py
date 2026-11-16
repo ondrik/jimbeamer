@@ -604,37 +604,26 @@ regress."""
 
 
 @vim_needed
-@pytest.mark.parametrize('marker', ['-', '*', '+', '1.', '1)'])
 @pytest.mark.parametrize('mark', ['```', '~~~'], ids=['backtick', 'tilde'])
-def test_a_fence_may_open_on_a_list_markers_own_line(tmp_path, marker, mark):
-    """'- ```' makes the item's own content a listing, which the converter
-has always read that way and the syntax file could not see at all: it
-wanted the fence at the start of the line, so the opener went uncoloured,
-the CLOSING fence was taken for an opener, and everything after the list
-came out as code -- the exact inversion, one line further down.
+def test_a_fence_on_a_list_markers_own_line_is_the_gap_that_is_left(tmp_path,
+                                                                    mark):
+    """'- ```' makes the item's own content a listing and the converter
+reads it that way, but the region wants the fence at the start of the
+line, so the opener goes uncoloured and the CLOSING fence is taken for an
+opener instead.
 
-With tildes it was worse than uncoloured: stock markdown read '~~~~' after
-a bullet as a strikethrough delimiter."""
+Pinned as a known gap rather than fixed, and this is the test that should
+start failing if somebody closes it properly.  Letting an optional marker
+into the start pattern -- which is the obvious cure, and was written and
+measured -- colours this listing and buys three ways to open a region the
+converter never opens: a marker four columns in is prose here, an ordered
+marker other than '1.' cannot interrupt a paragraph and is prose too, and
+the six 'a fence ends it' patterns would each need the marker as well.
+The first two a region cannot tell.  A listing that goes uncoloured is a
+smaller fault than a region that runs to the end of the deck."""
     probed = run_vim(tmp_path, '# S\n\n%s %s\n  int x;\n  %s\n\n'
-                               'after the fence\n' % (marker, mark, mark))
-    assert 'jimbeamerCodeFence' in groups_on(probed, 'int x;')
-    assert 'jimbeamerCodeFence' not in groups_on(probed, 'after the fence')
-
-
-@vim_needed
-def test_a_wide_list_marker_is_the_gap_that_is_left(tmp_path):
-    """The marker is matched but not captured, so the closer is measured
-from the margin -- which is where the item's content begins only while the
-marker fits in the three columns the margin pattern allows.  '+   ```' puts
-it at four, and a region cannot measure that any more than it can measure
-the rest of this file's indent arithmetic.
-
-Pinned as the known shape rather than left to be rediscovered: if someone
-teaches the region to count columns, this is the test that should start
-failing."""
-    probed = run_vim(tmp_path, '# S\n\n+   ```\n    int x;\n    ```\n\n'
-                               'after the fence\n')
-    assert 'jimbeamerCodeFence' in groups_on(probed, 'after the fence')
+                               'after the fence\n' % ('-', mark, mark))
+    assert 'jimbeamerCodeFence' not in groups_on(probed, 'int x;')
 
 
 @vim_needed

@@ -343,30 +343,33 @@ syn region jimbeamerHtmlComment start=/^\s*<!--/ end=/-->/ keepend
 " most a region that compares indents as text rather than as columns can say.
 " Both need the two ends of one fence to disagree about their indent, and the
 " colour then goes wrong at the fence rather than halfway down the deck.
-" A list marker may stand in front of the opener -- '- ```' makes the item's
-" own content a listing -- and is matched but deliberately NOT captured into
-" \z1, which stays the indent alone.  Captured, the closer would have to
-" repeat the marker and would never match, and the region would run away
-" instead; left out, the closer is measured from the margin, which is where
-" the item's content starts for every marker narrow enough to fit in the
-" three columns the second end pattern allows.  Wide ones ('+   ```',
-" '10. ```') still open a fence the closer cannot end, because the content
-" column is the marker's width and that is a measurement, not a text.
-"
 " '[ \t\d12]' rather than '[ \t]': a form feed is decimal 12, and marko turns
 " one into a newline before any block parser runs, so the converter closes a
 " fence at '```<FF>'.  Vim collections do not translate '\f', hence the
-" decimal.
+" decimal -- spelled '\f' it would match a backslash or an 'f', and '```f'
+" would end a listing.
+"
+" A fence opened on a list marker's own line ('- ```') is NOT matched, and
+" the attempt is recorded here because it looks easy and is not.  Letting an
+" optional marker in front of the backticks colours that listing, and buys
+" three new ways to open a region the converter never opens: a marker four
+" columns in is prose here, an ordered marker other than '1.' cannot
+" interrupt a paragraph and so is prose too -- neither of which a region can
+" tell, the second needing to know what the previous line was -- and the six
+" 'a fence ends it' patterns above would each need the marker as well, or a
+" runaway region swallows the opener and the closer starts a fresh one.  A
+" listing that goes uncoloured is a smaller fault than a region that runs to
+" the end of the deck, so the marker stays out.
 "
 " Exotic whitespace after the backticks -- a no-break space, an en quad --
 " used to close a fence for the converter and not here; CLOSE_RE says
 " '[ \t]*$' now, as these do (issue #26, group B).
 syn region jimbeamerCodeFence matchgroup=jimbeamerCodeDelim keepend
-      \ start=/^\z(\s*\)\%(\%([-*+]\|\d\{1,9}[.)]\)\s\+\)\=\z(`\{3,}\)[^`]*$/
+      \ start=/^\z(\s*\)\z(`\{3,}\)[^`]*$/
       \ end=/^\z1 \{0,3}\z2`*[ \t\d12]*$/
       \ end=/^ \{0,3}\z2`*[ \t\d12]*$/
 syn region jimbeamerCodeFence matchgroup=jimbeamerCodeDelim keepend
-      \ start=/^\z(\s*\)\%(\%([-*+]\|\d\{1,9}[.)]\)\s\+\)\=\z(\~\{3,}\).*$/
+      \ start=/^\z(\s*\)\z(\~\{3,}\).*$/
       \ end=/^\z1 \{0,3}\z2\~*[ \t\d12]*$/
       \ end=/^ \{0,3}\z2\~*[ \t\d12]*$/
 
