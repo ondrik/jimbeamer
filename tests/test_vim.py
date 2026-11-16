@@ -604,6 +604,56 @@ regress."""
 
 
 @vim_needed
+@pytest.mark.parametrize('marker', ['-', '*', '+', '1.', '1)'])
+@pytest.mark.parametrize('mark', ['```', '~~~'], ids=['backtick', 'tilde'])
+def test_a_fence_may_open_on_a_list_markers_own_line(tmp_path, marker, mark):
+    """'- ```' makes the item's own content a listing, which the converter
+has always read that way and the syntax file could not see at all: it
+wanted the fence at the start of the line, so the opener went uncoloured,
+the CLOSING fence was taken for an opener, and everything after the list
+came out as code -- the exact inversion, one line further down.
+
+With tildes it was worse than uncoloured: stock markdown read '~~~~' after
+a bullet as a strikethrough delimiter."""
+    probed = run_vim(tmp_path, '# S\n\n%s %s\n  int x;\n  %s\n\n'
+                               'after the fence\n' % (marker, mark, mark))
+    assert 'jimbeamerCodeFence' in groups_on(probed, 'int x;')
+    assert 'jimbeamerCodeFence' not in groups_on(probed, 'after the fence')
+
+
+@vim_needed
+def test_a_wide_list_marker_is_the_gap_that_is_left(tmp_path):
+    """The marker is matched but not captured, so the closer is measured
+from the margin -- which is where the item's content begins only while the
+marker fits in the three columns the margin pattern allows.  '+   ```' puts
+it at four, and a region cannot measure that any more than it can measure
+the rest of this file's indent arithmetic.
+
+Pinned as the known shape rather than left to be rediscovered: if someone
+teaches the region to count columns, this is the test that should start
+failing."""
+    probed = run_vim(tmp_path, '# S\n\n+   ```\n    int x;\n    ```\n\n'
+                               'after the fence\n')
+    assert 'jimbeamerCodeFence' in groups_on(probed, 'after the fence')
+
+
+@vim_needed
+def test_a_form_feed_closes_a_fence_as_the_converter_closes_it(tmp_path):
+    """marko's _preprocess_text turns a form feed into a newline before any
+block parser runs, so the converter ends the listing at '```<FF>' -- and
+the syntax file, for which a form feed is an ordinary character, used to
+colour the rest of the deck as code.
+
+The collection spells it '\\d12' because vim does not translate '\\f'
+inside one; written '\\f' it would match a backslash or an 'f', and the
+closer would take '```f' for the end of a listing."""
+    probed = run_vim(tmp_path, '# S\n\n```C\nint x;\n```\x0c\n\n'
+                               'after the fence\n')
+    assert 'jimbeamerCodeFence' in groups_on(probed, 'int x;')
+    assert 'jimbeamerCodeFence' not in groups_on(probed, 'after the fence')
+
+
+@vim_needed
 def test_a_verbatim_environment_is_not_ended_by_a_hash(tmp_path):
     """The exception the converter makes: inside VERBATIM_ENVIRONMENTS a
 '# ' line is a shell or Python comment, not a heading, so only the
