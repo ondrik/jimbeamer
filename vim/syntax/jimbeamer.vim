@@ -225,9 +225,48 @@ syn region jimbeamerHtmlComment start=/<!--/ end=/-->/ keepend
 " Code fences, so that a '%' or a '@' inside one is not mistaken for ours
 " ---------------------------------------------------------------------------
 
-syn region jimbeamerCodeFence matchgroup=jimbeamerCodeDelim
-      \ start=/^\s*\z(`\{3,}\|\~\{3,}\)\s*\%([A-Za-z0-9_+-]*\)/
-      \ end=/^\s*\z1\s*$/ keepend
+" Two regions rather than one, split on the fence character, because a
+" closer may be longer than its opener -- the converter closes '```' on
+" '`````' -- and one region cannot say "more of whatever \z1 was made of"
+" without also letting tildes close a backtick fence.
+"
+" \z1 is the opener's indent and \z2 its run of fence characters.  The
+" converter closes on a fence indented up to three columns past its opener,
+" and a region cannot measure that, so it is written as the two cases that
+" can be:
+"
+"   ^\z1 \{0,3}      the opener's own indent, and up to three columns more
+"   ^ \{0,3}         three columns or fewer from the margin
+"
+" The second needs no reference to the opener: an indent of three or less is
+" within "opener plus three" whatever the opener was, since no indent is
+" negative.  So it is exact rather than a guess.
+"
+" Three *spaces* in both, not three \s: a tab is four columns and so is
+" already past the allowance, but it is one character, and counting it as
+" one is how a tab-indented fence quoted inside a listing used to end the
+" listing.
+"
+" The info string of a backtick fence may not hold a backtick -- CommonMark's
+" rule, and marko's -- so '```a``` b' is a paragraph, not a fence.  Anchoring
+" the start at the end of the line is what enforces it.
+"
+" Known gap: a closer indented LESS than its opener, by more than three
+" columns from the margin, leaves the region open where the converter closes
+" it -- an opener eight columns in and a closer at six, say.  So does a
+" closer indented with different whitespace characters than its opener, a tab
+" against four spaces.  Neither is expressible: the two cases above are the
+" most a region that compares indents as text rather than as columns can say.
+" Both need the two ends of one fence to disagree about their indent, and the
+" colour then goes wrong at the fence rather than halfway down the deck.
+syn region jimbeamerCodeFence matchgroup=jimbeamerCodeDelim keepend
+      \ start=/^\z(\s*\)\z(`\{3,}\)[^`]*$/
+      \ end=/^\z1 \{0,3}\z2`*\s*$/
+      \ end=/^ \{0,3}\z2`*\s*$/
+syn region jimbeamerCodeFence matchgroup=jimbeamerCodeDelim keepend
+      \ start=/^\z(\s*\)\z(\~\{3,}\).*$/
+      \ end=/^\z1 \{0,3}\z2\~*\s*$/
+      \ end=/^ \{0,3}\z2\~*\s*$/
 
 " ---------------------------------------------------------------------------
 
