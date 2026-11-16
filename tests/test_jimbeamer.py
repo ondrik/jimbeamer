@@ -286,6 +286,39 @@ def test_frontmatter_bad_block_exits_cleanly(jimbeamer, block, message):
 
 
 ###########################################
+# strip_byte_order_mark() -- a mark in front of the first character
+###########################################
+
+def test_a_byte_order_mark_leaves_the_first_line_a_fence(jimbeamer, opts):
+    """The mark is not whitespace, so Fence.OPEN_RE stopped matching and a
+deck opening with '~~~' had no fence in it anywhere: every line of markup
+in it reached LaTeX as prose.  Breaking this brings that back."""
+    out = jimbeamer.convert('\ufeff~~~\na\n~~~\n', '$slides', opts())
+    assert '\\begin{lstlisting}\na\n' in out
+    assert '~~~' not in without_comments(out)
+
+
+def test_a_byte_order_mark_leaves_a_metadata_block_a_metadata_block(
+        jimbeamer, opts):
+    """FRONTMATTER_RE is anchored with \\A, so the mark pushed the block out
+of reach: the deck lost its title and the YAML was typeset on the first
+slide.  This is the half of it that a fence test cannot see."""
+    out = jimbeamer.convert('\ufeff---\ntitle: T\n---\n\n# S\n\ntext\n',
+                            '$title|$slides', opts())
+    assert out.startswith('T|')
+    assert 'title: T' not in without_comments(out)
+
+
+def test_a_byte_order_mark_is_taken_off_only_at_the_very_start(jimbeamer,
+                                                               opts):
+    """Anywhere but in front of the first character U+FEFF is a zero-width
+no-break space that somebody meant to type, and passthrough says it reaches
+LaTeX untouched.  Breaking this edits the author's text."""
+    out = jimbeamer.convert('# S\n\nna\ufeffive\n', '$slides', opts())
+    assert 'na\ufeffive' in out
+
+
+###########################################
 # find_template() -- where the default template comes from
 ###########################################
 
@@ -867,6 +900,100 @@ same disagreement as above, reached by a different line."""
     assert '% a comment line that belongs to the listing' in body
 
 
+#: A listing with something after its closing backticks -- whatever goes
+#: in the '%s' -- and then the three lines that say which parts of the
+#: module believed the listing had ended there.  The parser answers with
+#: where it puts '\end{lstlisting}', the comment stripper with whether the
+#: '%' line survived, and the preamble splitter with whether the
+#: '@preamble' was hoisted into the document's own.  Nothing closes the
+#: listing afterwards: if the backticks did not, it runs to the end of the
+#: document, which is what CommonMark says it does.
+FENCE_WITH_A_TRAILER = ('---\ntitle: T\n---\n\n# S\n\n'
+                        '```markdown\ninside the listing\n```%s\n'
+                        '%% a comment line\n@preamble\n'
+                        '\\usepackage{yourpackage}\n@end preamble\n'
+                        'after the backticks\n')
+
+
+def parts_of(result):
+    """parts_of(str) -> (str, str, str)
+
+The preamble, the body of the listing and the rest of the document, which
+is what the three parts of the fence rules each have to be asked about.
+"""
+    preamble, _, body = result.partition('\\begin{document}')
+    listing = body.split('\\begin{lstlisting}')[1].split('\n', 1)[1]
+    return preamble, listing.split('\\end{lstlisting}')[0], body
+
+
+@pytest.mark.parametrize('trailer', ['', ' ', '\t', '  \t '],
+                         ids=['nothing', 'space', 'tab', 'both'])
+def test_a_space_or_a_tab_after_the_backticks_still_closes_a_fence(convert,
+                                                                   trailer):
+    """The half of the rule that must survive narrowing it: CommonMark
+allows spaces and tabs after a closer, so these are closers and what
+follows them is the document again -- the '%' line a comment, the
+'@preamble' the preamble."""
+    result = convert(FENCE_WITH_A_TRAILER % trailer)
+    preamble, listing, body = parts_of(result)
+    assert '\\usepackage{yourpackage}' in preamble
+    assert listing == 'inside the listing\n'
+    assert '% a comment line' not in body
+
+
+@pytest.mark.parametrize('space', ['\u00a0', '\u2000', '\u3000', '\v'],
+                         ids=['nbsp', 'en-quad', 'ideographic',
+                              'vertical-tab'])
+def test_a_space_that_is_not_one_here_closes_no_fence(convert, space):
+    """CommonMark allows spaces and tabs after a closing fence and nothing
+else, and vim's '\\s' is the same two characters.  This pattern said
+'[^\\n\\S]', where '\\S' on a str pattern is Unicode aware, so every space
+Unicode knows of closed the listing for the converter while the syntax
+file went on colouring it as code -- the converter being the permissive
+one for once.  A listing that quotes a fence, with a no-break space picked
+up from a web page or a slide, lost everything after it: issue #26."""
+    preamble, listing, _ = parts_of(convert(FENCE_WITH_A_TRAILER % space))
+    assert 'yourpackage' not in preamble
+    assert listing.endswith('after the backticks\n')
+    assert '% a comment line' in listing
+
+
+def test_a_form_feed_after_the_backticks_closes_the_fence_regardless(convert):
+    """Not by this module's rules -- it has none for a form feed, which is
+no more a closer than a no-break space is -- but by marko's, which end a
+line on one before any of this is asked.  The parser therefore sees a bare
+'```' and closes there whatever Fence thinks.
+
+normalize_newlines() is what makes the two passes in front of it end the
+line in the same place.  Without it, narrowing the closer left the listing
+closed for the parser and open for them, so the '%' line reached the slide
+as a LaTeX comment and the '@preamble' came out as '\\begin{preamble}', an
+environment nothing defines."""
+    preamble, listing, body = parts_of(convert(FENCE_WITH_A_TRAILER % '\f'))
+    assert '\\usepackage{yourpackage}' in preamble
+    assert listing == 'inside the listing\n'
+    assert '% a comment line' not in body
+
+
+def test_a_deck_written_with_crlf_is_the_deck_it_was_written_as(convert):
+    """A carriage return reaches here: a named file loses it to text mode
+on the way in, but stdin -- this command's default input -- is
+reconfigured rather than opened, and the standard streams are created with
+newline='\\n' rather than universal newlines, so nothing translates
+anything.  FRONTMATTER_RE has always said '\\r?\\n' and was right to.
+
+'@preamble\\r' and '@end preamble\\r' both end in '[ \\t]*$' and so matched
+neither: a CRLF deck's preamble stayed where it was written and reached
+LaTeX as '\\begin{preamble}'.  Narrowing the closing fence to spaces and
+tabs would have put the listing in the same position, since the
+'[^\\n\\S]' it used to say had been quietly taking the '\\r'."""
+    deck = (FENCE_WITH_A_TRAILER % '').replace('\n', '\r\n')
+    preamble, listing, body = parts_of(convert(deck))
+    assert '\\usepackage{yourpackage}' in preamble
+    assert listing == 'inside the listing\n'
+    assert '% a comment line' not in body
+
+
 def test_indented_prose_is_reported_once_it_stops_being_a_listing(render,
                                                                   capsys):
     """Refusing silently is a trap on a deck written before this: what was
@@ -994,6 +1121,92 @@ bullet came out as a listing."""
     """))
     assert '\\begin{minipage}{6cm}' in body
     assert 'lstlisting' not in body
+
+
+###########################################
+# a fence that is never closed
+###########################################
+
+def test_a_closer_outside_the_list_item_is_reported(render, capsys):
+    """A closing fence written at the margin under an item it was opened
+in does not belong to the item, so the item ends and the fence is closed
+by running out of container instead of by its closer.  The ``` line is
+then read again at top level as a *new* opener running to the end of the
+deck, so the heading after it and its prose come out inside a listing:
+two frames become one, and until this warning nothing was printed at
+all."""
+    body = render('# One\n\n- an item\n  ```C\n  int x;\n```\n\n'
+                  '# Two\n\nprose\n')
+    assert body.count('\\begin{frame}') == 1, 'the deck really is damaged'
+    assert "the '```C' fence was never closed" in capsys.readouterr().err
+
+
+def test_a_closer_outside_the_item_swallowing_a_directive_is_reported(
+        render, capsys):
+    """The same shape costing a directive rather than a frame: '@end
+column' is typeset as code and the column it would have closed stays
+open, which LaTeX then complains about somewhere else entirely."""
+    body = render('# S\n\n@columns\n@column 0.5\n\n- an item\n  ```C\n'
+                  '  int x;\n```\n\n@end column\n\n@column 0.5\n\nright\n\n'
+                  '@end columns\n')
+    assert '@end column' in body, 'the directive really is typeset as code'
+    assert 'fence was never closed' in capsys.readouterr().err
+
+
+def test_a_fence_emptied_by_a_lazy_body_line_is_reported(render, capsys):
+    """A body line at the margin ends the item before the fence has a
+single line, so the listing comes out empty and the line it should have
+held is typeset as prose -- where LaTeX reads it, and a '&' or a '_' in
+it stops the build with nothing pointing back here."""
+    body = render('# S\n\n- an item\n  ```C\nint x;\n  ```\n\nafter\n')
+    assert '\\begin{lstlisting}[language={C}]\n\n\\end{lstlisting}' in body, \
+        'the listing really does come out empty'
+    assert 'fence was never closed' in capsys.readouterr().err
+
+
+def test_an_unclosed_fence_at_the_end_of_the_file_is_reported(render, capsys):
+    """The same loss with the deck ending inside the listing rather than a
+frame being swallowed, and the same code path.  CommonMark closes a fence
+at the end of the document, which makes this legal and almost never what
+was meant -- and an unclosed '@preamble' at the end of the file has been
+reported for the same reason all along."""
+    render('# S\n\n```C\nint x;\n')
+    assert 'fence was never closed' in capsys.readouterr().err
+
+
+@pytest.mark.parametrize('text', [
+    '# S\n\n```C\nint x;\n```\n',
+    '# S\n\n- an item\n  ```C\n  int x;\n  ```\n',
+    '# S\n\n* an item\n    ```C\n    int x;\n  ```\n',
+    '# S\n\n```markdown\nquoting\n    ```c\n```\n',
+], ids=['top-level', 'in-an-item', 'slack', 'quoting'])
+def test_a_closed_fence_says_nothing(render, capsys, text):
+    """The warning has to fire where the fence was lost and nowhere else,
+or a deck full of listings drowns in it.  The quoted fence is here
+because the two passes before the parser track fences of their own: an
+odd number of quoted fence lines is what used to leave them inverted, and
+a warning is one more thing that can go wrong at a line like that."""
+    render(text)
+    assert capsys.readouterr().err == ''
+
+
+def test_the_warning_names_the_fence_it_means(render, capsys):
+    """No line number is given because there is none to give --
+strip_comments() deletes lines before marko ever counts them -- so the
+opener's info string is all the author has to grep for, and a deck with
+several listings needs it to be the right one."""
+    render('# S\n\n```C\nint x;\n```\n\n- an item\n  ```python\n'
+           '  x = 1\n```\n')
+    error = capsys.readouterr().err
+    assert "'```python'" in error
+    assert "'```C'" not in error
+
+
+def test_the_example_deck_closes_every_fence(convert, deck, capsys):
+    """The warning is only worth having if a sound deck is silent, and
+EXAMPLE is the deck that stands in for a real one."""
+    convert(deck)
+    assert capsys.readouterr().err == ''
 
 
 ###########################################
@@ -3593,6 +3806,53 @@ def test_cli_handles_non_ascii(script, tmp_path, source):
         done = run(script, str(deck))
     assert done.returncode == 0, done.stderr
     assert 'Naïve café' in done.stdout
+
+
+@pytest.mark.parametrize('source', ['stdin', 'file'])
+def test_cli_handles_crlf(script, tmp_path, source):
+    """Where the carriage returns actually come from, and the evidence for
+normalize_newlines(): a named file is opened in text mode and loses them
+on the way in, while a pipe keeps every one -- stdin is reconfigured
+rather than opened, and the standard streams are created with
+newline='\\n' rather than universal newlines.  Both have to arrive as the
+same deck, and the pipe did not: '@preamble\\r' matched nothing, so the
+preamble block stayed in the slide as '\\begin{preamble}'."""
+    text = ('---\ntitle: T\n---\n\n# S\n\n@preamble\n'
+            '\\usepackage{yourpackage}\n@end preamble\n\n'
+            '```C\nint x;\n```\n\nafter the listing\n').replace('\n', '\r\n')
+    if source == 'stdin':
+        done = run(script, stdin=text)
+    else:
+        deck = tmp_path / 'deck.md'
+        deck.write_bytes(text.encode('utf-8'))
+        done = run(script, str(deck))
+    assert done.returncode == 0, done.stderr
+    preamble, _, body = done.stdout.partition('\\begin{document}')
+    assert '\\usepackage{yourpackage}' in preamble
+    assert '\\begin{preamble}' not in body
+    assert '\\begin{lstlisting}[language={C}]\nint x;\n\\end{lstlisting}' in body
+
+
+@pytest.mark.parametrize('source', ['stdin', 'file'])
+def test_cli_drops_a_leading_byte_order_mark(script, tmp_path, source):
+    """The mark reaches the converter through both doors -- a file is opened
+as 'utf-8', which keeps it, and stdin is reconfigured rather than opened --
+so this is what says that taking it off in convert() covers the two of
+them.  Without it the deck's own markup is typeset as prose."""
+    text = '\ufeff~~~\na\n~~~\n'
+    if source == 'stdin':
+        done = run(script, stdin=text)
+    else:
+        deck = tmp_path / 'deck.md'
+        deck.write_text(text, encoding='utf-8')
+        done = run(script, str(deck))
+    assert done.returncode == 0, done.stderr
+    assert '\\begin{lstlisting}\na\n' in done.stdout
+    # the second fence opens a listing of its own when the first one did
+    # not, so the listing alone proves nothing: what says the mark is gone
+    # is that no fence line survived as text.
+    assert '~~~' not in without_comments(done.stdout)
+    assert '\ufeff' not in without_comments(done.stdout)
 
 
 ###########################################

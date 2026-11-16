@@ -259,6 +259,13 @@ syn region jimbeamerHtmlComment start=/<!--/ end=/-->/ keepend
 " most a region that compares indents as text rather than as columns can say.
 " Both need the two ends of one fence to disagree about their indent, and the
 " colour then goes wrong at the fence rather than halfway down the deck.
+"
+" A second gap, and marko's doing rather than anybody's pattern: a form feed
+" after the closing backticks ends the line for marko, so the converter
+" closes the fence there and this region does not.  Every other space that
+" is not a space or a tab -- a no-break space, an en quad -- used to close it
+" for the converter and not here, which was the divergence that mattered;
+" CLOSE_RE says '[ \t]*$' now, as this does (issue #26).
 syn region jimbeamerCodeFence matchgroup=jimbeamerCodeDelim keepend
       \ start=/^\z(\s*\)\z(`\{3,}\)[^`]*$/
       \ end=/^\z1 \{0,3}\z2`*\s*$/

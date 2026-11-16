@@ -964,6 +964,18 @@ The ones that have actually cost time:
   A verbatim environment (`lstlisting`, `verbatim`, ...) is the exception: a
   `# ` line inside one is a shell or Python comment, so only the matching
   `\end` closes it, and an unterminated one does still run on.
+* **A closing fence belongs to the block its opener is in.** Written further
+  out — at the margin under a fence opened inside a list item, say — it is not
+  the item's line at all, so the item ends, the fence is closed by running out
+  of room rather than by its closer, and that row of backticks is then read
+  again at the top level as a *new* opener running to the end of the deck. The
+  heading after it and its prose come out inside a listing, two frames become
+  one, and an `@end column` in the way is typeset as code while the column it
+  would have closed stays open. Indent the closer like the opener. Either
+  shape, and a fence left open at the end of the file, is reported on stderr
+  as ``the '```C' fence was never closed`` — named by its info string, since
+  comment lines are removed before the parser counts any, so there is no line
+  number to give.
 * **Indentation means nothing here.** A code block is a fence and nothing
   else, so an indented `@block` or `\begin{...}` is still what it says it
   is — line it up with the list item or the column it belongs to.
