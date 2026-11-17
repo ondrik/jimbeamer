@@ -604,6 +604,45 @@ regress."""
 
 
 @vim_needed
+@pytest.mark.parametrize('mark', ['```', '~~~'], ids=['backtick', 'tilde'])
+def test_a_fence_on_a_list_markers_own_line_is_the_gap_that_is_left(tmp_path,
+                                                                    mark):
+    """'- ```' makes the item's own content a listing and the converter
+reads it that way, but the region wants the fence at the start of the
+line, so the opener goes uncoloured and the CLOSING fence is taken for an
+opener instead.
+
+Pinned as a known gap rather than fixed, and this is the test that should
+start failing if somebody closes it properly.  Letting an optional marker
+into the start pattern -- which is the obvious cure, and was written and
+measured -- colours this listing and buys three ways to open a region the
+converter never opens: a marker four columns in is prose here, an ordered
+marker other than '1.' cannot interrupt a paragraph and is prose too, and
+the six 'a fence ends it' patterns would each need the marker as well.
+The first two a region cannot tell.  A listing that goes uncoloured is a
+smaller fault than a region that runs to the end of the deck."""
+    probed = run_vim(tmp_path, '# S\n\n%s %s\n  int x;\n  %s\n\n'
+                               'after the fence\n' % ('-', mark, mark))
+    assert 'jimbeamerCodeFence' not in groups_on(probed, 'int x;')
+
+
+@vim_needed
+def test_a_form_feed_closes_a_fence_as_the_converter_closes_it(tmp_path):
+    """marko's _preprocess_text turns a form feed into a newline before any
+block parser runs, so the converter ends the listing at '```<FF>' -- and
+the syntax file, for which a form feed is an ordinary character, used to
+colour the rest of the deck as code.
+
+The collection spells it '\\d12' because vim does not translate '\\f'
+inside one; written '\\f' it would match a backslash or an 'f', and the
+closer would take '```f' for the end of a listing."""
+    probed = run_vim(tmp_path, '# S\n\n```C\nint x;\n```\x0c\n\n'
+                               'after the fence\n')
+    assert 'jimbeamerCodeFence' in groups_on(probed, 'int x;')
+    assert 'jimbeamerCodeFence' not in groups_on(probed, 'after the fence')
+
+
+@vim_needed
 def test_a_verbatim_environment_is_not_ended_by_a_hash(tmp_path):
     """The exception the converter makes: inside VERBATIM_ENVIRONMENTS a
 '# ' line is a shell or Python comment, not a heading, so only the
