@@ -1054,6 +1054,82 @@ everywhere."""
     assert 'a comment, not code' not in body
 
 
+@pytest.mark.parametrize('marker', ['-', '*', '+', '1.', '1)'])
+@pytest.mark.parametrize('mark', ['```', '~~~'], ids=['backtick', 'tilde'])
+def test_a_percent_line_survives_a_fence_opened_on_a_marker(render, marker,
+                                                            mark):
+    """A fence may open on the list marker's own line -- '- ```C' makes the
+item's content a listing -- and Fence.OPEN_RE is anchored at the margin,
+so Fence.opens() said no, LiteralScanner never entered literal mode, and
+the comment stripper deleted the line before marko saw it.  marko itself
+got it right, because by then the item's prefix had been taken off: the
+parser and the two passes in front of it disagreeing again, in the one
+shape where the opener is not at the start of its line."""
+    body = render('# S\n\n%s %sC\n  %% still code\n  int x;\n  %s\n'
+                  % (marker, mark, mark))
+    assert '% still code' in body
+
+
+def test_a_quoted_preamble_survives_a_fence_opened_on_a_marker(convert):
+    """The other half, and the expensive one: the preamble splitter asks
+the same scanner, so an '@preamble' quoted in such a listing was lifted
+into the real preamble.  The listing came out empty and the document
+gained a \\usepackage nobody had installed."""
+    result = convert('---\ntitle: T\n---\n\n# S\n\n- ```text\n  @preamble\n'
+                     '  \\usepackage{yourpackage}\n  @end preamble\n  ```\n')
+    preamble, _, body = result.partition('\\begin{document}')
+    assert 'yourpackage' not in preamble
+    assert '@preamble' in body
+
+
+@pytest.mark.parametrize('marker', ['2.', '7)'])
+def test_an_ordered_marker_that_is_not_one_opens_nothing(render, marker):
+    """CommonMark lets a list interrupt a paragraph only when it is a
+bullet, or is ordered and starts at 1.  So this is the paragraph carrying
+on and the backticks are a code span, not a fence -- the converter emits
+no listing at all, and a '%' below it is an ordinary comment.
+
+Deciding that needs the line before, which is why the test matters: it is
+the rule a pattern cannot carry and a scanner can, and it is what makes
+this fix possible where the same one in the syntax file was not."""
+    body = render('# S\n\nprose\n%s ```C\n%% a real comment\n' % marker)
+    assert 'a real comment' not in body
+
+
+def test_a_bullet_may_still_interrupt_a_paragraph(render):
+    """The other side of that rule, and the reason it cannot simply be
+'a marker needs a blank line before it': a bullet interrupts a paragraph
+quite legally, so this one really does open a listing."""
+    body = render('# S\n\nprose\n- ```C\n  %% still code\n  ```\n')
+    assert '% still code' in body
+
+
+def test_a_marker_four_columns_in_opens_nothing(render):
+    """A list starts at three columns of indent at most.  Beyond that it
+is prose -- this format has no indented code block to make it anything
+else -- so the backticks are a code span and the '%' below is a comment.
+Without the cap the scanner would take every indented marker for a list
+and stop stripping comments from there on."""
+    body = render('# S\n\nprose\n    - ```C\n%% a real comment\n')
+    assert 'a real comment' not in body
+
+
+def test_a_body_outside_the_items_indent_is_the_gap_that_is_left(render,
+                                                                 capsys):
+    """Where the approximation is wrong, pinned so that it is known rather
+than discovered.  The scanner measures the fence from the item's content
+column and reads to the matching closer; marko ends the item at the first
+line that is not indented into it, so the two disagree about which lines
+are the listing.
+
+The error changes direction rather than going away: a line is kept where
+it used to be deleted, and it reaches LaTeX as an ordinary comment.  The
+deck is the shape issue #25 warns about, so it is not silent either."""
+    body = render('# S\n\n- ```C\n%% looks like a comment\n  ```\n\ntail\n')
+    assert '% looks like a comment' in body
+    assert 'fence was never closed' in capsys.readouterr().err
+
+
 def test_a_percent_line_survives_an_indented_verbatim(render):
     """VERBATIM_BEGIN_RE never had the cap, so this already worked --
 pinned because the two belong together and a future tidy-up might give
