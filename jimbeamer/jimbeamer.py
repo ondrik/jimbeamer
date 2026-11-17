@@ -355,6 +355,18 @@ VERBATIM_BEGIN_RE = re.compile(
     r'[ \t]*\\begin\{(' + '|'.join(VERBATIM_ENVIRONMENTS) + r')\}')
 
 
+#: A list marker that a fence may open behind: '- ```C' makes the item's
+#: own content a listing, and the converter has always read it that way.
+#: At most three columns of indent, because beyond that it is not a list
+#: start; the marker; and the whitespace after it.  The width of the whole
+#: prefix is the item's content column, which is where the fence sits.
+#: What a fence looks like is deliberately NOT spelled here -- Fence.opens()
+#: is asked about whatever follows the marker, so there stays one definition
+#: of a fence in this module and this pattern knows only about markers.
+LIST_FENCE_RE = re.compile(
+    r'(?P<prefix>[ \t]{0,3}(?:(?P<number>\d{1,9})[.)]|[*\-+])[ \t]+)')
+
+
 class LiteralScanner:
     """Says, line by line, whether we are somewhere taken literally.
 
@@ -368,12 +380,15 @@ LaTeX environment written out by hand: a '%' in either is content, and an
     def __init__(self):
         self.fence = None       # the Fence that opened the block we are in
         self.verbatim = None    # the environment we are in, by name
+        self.blank = True       # was the line before this one blank?
 
     def feed(self, line):
         """scanner.feed(str) -> bool
 
 True when `line` is literal content, the line that opened it included.
 """
+        blank_before, self.blank = self.blank, not line.strip()
+
         if self.fence is not None:
             if self.fence.closes(line):
                 self.fence = None
@@ -384,7 +399,8 @@ True when `line` is literal content, the line that opened it included.
                 self.verbatim = None
             return True
 
-        self.fence = Fence.opens(line)
+        self.fence = (Fence.opens(line)
+                      or self.behind_a_marker(line, blank_before))
         if self.fence is not None:
             return True
 
@@ -394,6 +410,27 @@ True when `line` is literal content, the line that opened it included.
             return True
 
         return False
+
+    @staticmethod
+    def behind_a_marker(line, blank_before):
+        """behind_a_marker(str, bool) -> Fence or None
+
+The fence `line` opens behind a list marker, measured from the item's
+content column so that its closer lines up with it.
+"""
+        match = LIST_FENCE_RE.match(line)
+        if not match:
+            return None
+        # A list interrupts a paragraph only when it is a bullet, or is
+        # ordered and starts at 1; otherwise '2. ```C' under a line of
+        # prose is that paragraph continuing and the backticks are a code
+        # span.  Knowing which needs the line before, and the line before
+        # is the one thing a scanner has that a pattern does not.
+        if not blank_before and match.group('number') not in (None, '1'):
+            return None
+        prefix = match.group('prefix')
+        fence = Fence.opens(line[len(prefix):])
+        return fence and Fence(' ' * indent_width(prefix), fence.marker)
 
 
 # An image, with an optional title and an optional attribute list:
