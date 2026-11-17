@@ -1526,6 +1526,46 @@ an underscore or an asterisk would otherwise be taken as markup.
     parse_group = 0             # the pattern has no capturing group
 
 
+class CodeSpan(marko.inline.CodeSpan):
+    """A code span, which outranks everything that only recognises what is
+inside it.
+
+marko gives a code span priority 7, below this module's maths (8 and 9),
+its images (8) and its raw LaTeX macros (8).  So the contents were claimed
+before the span around them could be, the backticks matched nothing, and
+the reader got them on the slide:
+
+    a `\\result` b        ->  a `\\result` b
+
+A deck about any language whose syntax uses a backslash -- a verification
+language, a shell, LaTeX itself -- is written almost entirely in spans
+like that one.  '`$x$`', '`\\(x\\)`', '`$$x$$`' and '`\\frac{a}{b}`' went
+the same way, and '`![alt](f.png)`' came out as a real \\includegraphics.
+
+The delimiters of a code span are written down, where a macro or a pair of
+dollars is only recognised, so the span is the stronger claim.
+RawLatexInline outranks the rest to keep Markdown out of a macro's
+arguments; inside a code span there is no Markdown to keep out, because
+the contents are already literal.
+
+9 rather than 10, which is the whole of the care here.  It puts the span
+above the things that are only recognised -- maths at 8, images, macros --
+and level with display maths, where marko then leaves the two alone to
+settle it between themselves and the one written outermost wins.  At 10
+the span won there too, and '$$a `b` c$$' stopped being display maths at
+all.
+
+What is left, and there is a test saying so: inline maths holding a
+matched pair of backticks, '$a `b` c$', now reads them as a span.  Maths
+is at 8 and nothing moves it without rearranging its own quarrel with
+images and macros.  A backtick inside '$...$' is an open quote in LaTeX
+and is rare; a code span holding a '$' is a deck about a shell.
+"""
+
+    override = True
+    priority = 9
+
+
 class List(marko.block.List):
     """An ordered list, which may be lettered, roman, or start where it likes.
 
@@ -2249,7 +2289,7 @@ The elements above, as an extension to register with marko.
 """
     return marko.helpers.MarkoExtension(
         elements=[MathDisplay, LatexMathDisplay, LatexMath, Math, Graphic,
-                  Span, Highlight, RawLatexInline,
+                  Span, Highlight, RawLatexInline, CodeSpan,
                   RawLatexEnvironment, RawLatexMacroLine, SlideMetadata,
                   List, ListItem, Paragraph, CodeBlock, FencedCode,
                   Directive, DirectiveElse, StrayDirectiveEnd])

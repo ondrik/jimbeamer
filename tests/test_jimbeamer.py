@@ -1438,6 +1438,56 @@ def test_render_inline_code_is_escaped(render):
     assert '\\texttt{a\\_b}' in render('# S\n\n`a_b`\n')
 
 
+@pytest.mark.parametrize('inside, id_', [
+    pytest.param('\\result', 'bare-macro'),
+    pytest.param('ar[\\result]', 'macro-in-brackets'),
+    pytest.param('\\frac{a}{b}', 'macro-with-arguments'),
+    pytest.param('$x$', 'inline-maths'),
+    pytest.param('$$x$$', 'display-maths'),
+    pytest.param('\\(x\\)', 'latex-inline-maths'),
+    pytest.param('\\[x\\]', 'latex-display-maths'),
+    pytest.param('![alt](f.png)', 'an-image'),
+    pytest.param('==hi==', 'a-highlight'),
+    pytest.param('[t]{.hlrd}', 'a-span'),
+])
+def test_a_code_span_outranks_what_is_written_inside_it(render, inside, id_):
+    """Issue #32.  marko gives a code span priority 7, under this module's
+maths, images and raw LaTeX macros, so the contents were claimed first,
+the backticks matched nothing, and the reader got them on the slide:
+
+    a `\\result` b        ->  a `\\result` b
+
+A deck about a language whose syntax uses a backslash is written almost
+entirely in spans like that -- the one that found it was about \\result
+and \\forall -- and '`![alt](f.png)`' came out as a real \\includegraphics,
+which is a picture appearing where a filename was meant to be shown."""
+    body = render('# S\n\nx `%s` y\n' % inside)
+    assert '\\texttt{' in body
+    assert '`' not in body
+
+
+def test_display_maths_holding_a_code_span_is_still_display_maths(render):
+    """The other side of the same priority, and the reason it is 9 and not
+10.  Level with display maths, the two settle it between themselves and
+the one written outermost wins; above it, '$$a `b` c$$' stopped being
+maths at all and came out as dollars around a \\texttt."""
+    body = render('# S\n\nx $$a `b` c$$ y\n')
+    assert '\\[a `b` c\\]' in body
+
+
+def test_inline_maths_holding_a_code_span_is_the_cost(render):
+    """What the fix costs, pinned so that it is known rather than found.
+Inline maths is at priority 8 and a code span now outranks it, so a
+matched pair of backticks inside '$...$' reads as a span where it used to
+reach LaTeX as an open quote.
+
+Moving maths to 9 does not help -- measured -- and would reopen its own
+quarrel with images and macros.  A backtick inside inline maths is rare;
+a code span holding a '$' is a deck about a shell."""
+    body = render('# S\n\nx $a `b` c$ y\n')
+    assert '$a \\texttt{b} c$' in body
+
+
 @pytest.mark.parametrize('text', [
     pytest.param('\\hlbl{highlighted}', id='macro-with-argument'),
     pytest.param('\\ldots', id='bare-macro'),
