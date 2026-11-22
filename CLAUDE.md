@@ -8,9 +8,9 @@ does not recognize is assumed to be LaTeX and emitted untouched, so any slide
 can fall back to raw LaTeX. Escaping happens in two places only: inside
 `` `inline code` ``, where the text is meant to be literal, and in a link
 destination, where LaTeX would read a `#` as a parameter and a `%` as a
-comment. A code span is not inviolable even so — maths and raw LaTeX are
-claimed ahead of it, so `` `$x$` `` and `` `\ldots` `` keep their backticks
-and escape nothing.
+comment. A code span is literal all the way through: it outranks maths and
+raw LaTeX, so `` `$x$` `` and `` `\ldots` `` come out in typewriter, escaped
+and as typed. That was the other way round until #32.
 
     jimbeamer deck.md -o deck.tex     # convert
     jimbeamer --pdf deck.md           # convert and build the PDF

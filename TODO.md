@@ -154,10 +154,11 @@ body), which worked and was written down nowhere.
 
 What is left is keeping the two in step, and the corrections this entry used
 to list have been made: `CLAUDE.md` now says that a leading `---` is metadata
-only when a closing fence follows, and that a code span is not inviolable
-since `$...$` and `\macro` are claimed ahead of it. The third correction it
-asked for has been overtaken — an `@end` that names something *is* verified
-now, and the name it carries is checked against what is actually open.
+only when a closing fence follows, and what a code span does with `$...$`
+and a `\macro` inside it -- once that they won, now (#32) that the span
+does. The third correction it asked for has been overtaken — an `@end` that
+names something *is* verified now, and the name it carries is checked
+against what is actually open.
 
 `HANDOFF.md` is gone. What it recorded that the others did not — what was
 decided against, what lives outside the repository, and how to recover the
