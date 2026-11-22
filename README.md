@@ -907,10 +907,10 @@ and `\}` do.
 Escaping happens in one place in your prose: inside `` `inline code` ``, where
 the text is meant to be literal, and where all ten of the reserved characters
 are handled for you. (A link's destination is escaped too — `#` and `%` get a
-backslash, braces are percent-encoded — so a URL needs nothing by hand.) That
-has one sharp edge — a code span containing `$...$`, `\(...\)`, `\[...\]` or
-a `\macro` is destroyed, because maths and raw LaTeX are claimed first. Write
-the maths outside the span:
+backslash, braces are percent-encoded — so a URL needs nothing by hand.) A
+code span is literal all the way through: `` `$x$` `` and `` `\ldots` ``
+come out in typewriter exactly as typed, not as maths or a macro, which makes
+a span the way to show LaTeX on a slide. Maths around a span still works:
 
 ```markdown
 $P($`counter == 10`$) = 0.5$
