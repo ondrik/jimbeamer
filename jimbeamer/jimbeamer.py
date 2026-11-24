@@ -1880,6 +1880,33 @@ still a break.
 
 
 ###########################################
+class SlideLoader(yaml.SafeLoader):
+    """The YAML loader for a slide's block: the safe one, except that an
+unknown local tag is read back as the text it was written as.
+
+'ifnot: handout' has a negated spelling, 'if: !handout', and YAML reads that
+'!' as a tag.  The safe loader knows no '!handout' and refuses the whole
+block, and a block that does not load is not a block -- so the slide's
+settings were typeset on the slide as prose, and nothing was said.  No
+slide key has any use for a tag, so the text is what was meant.
+
+Only scalars: a tagged list or mapping is still refused.  And only here,
+not for the document's own block, where a refusal is reported rather than
+taken for prose.
+"""
+
+
+def _local_tag_as_text(loader, suffix, node):
+    if not isinstance(node, yaml.ScalarNode):
+        raise yaml.constructor.ConstructorError(
+            None, None, 'a tagged %s' % node.id, node.start_mark)
+    return ('!%s %s' % (suffix, loader.construct_scalar(node))).strip()
+
+
+SlideLoader.add_multi_constructor('!', _local_tag_as_text)
+
+
+###########################################
 def load_slide_metadata(text):
     """load_slide_metadata(str) -> dict or None
 
@@ -1892,7 +1919,7 @@ happens to parse as a mapping from being read as settings -- a page about
 YAML, say, whose lines really are 'key: value'.
 """
     try:
-        meta = yaml.safe_load(YAML_COMMENT_RE.sub('', text))
+        meta = yaml.load(YAML_COMMENT_RE.sub('', text), SlideLoader)
     except yaml.YAMLError:
         return None
 
@@ -2156,7 +2183,7 @@ anything still open inside it, the way </ul> does in HTML.
 
     def __init__(self, info):
         (self.name, self.overlay, self.kind, self.text,
-         self.title, self.children) = info
+         self.title, self.children, self.closed_by_heading) = info
 
     @classmethod
     def match(cls, source):
@@ -2179,21 +2206,28 @@ anything still open inside it, the way </ul> does in HTML.
             # a title may hold Markdown, '@block Results **so far**'
             title = source.parser.parse(text).children
 
-        children = []
+        children, closed_by_heading = [], False
         open_directives(source).append(name)
         try:
-            children = cls.parse_body(source, name)
+            children, closed_by_heading = cls.parse_body(source, name)
         finally:
             open_directives(source).pop()
 
-        return name, overlay, kind, text, title, children
+        return (name, overlay, kind, text, title, children,
+                closed_by_heading)
 
     @classmethod
     def parse_body(cls, source, name):
-        """parse_body(Source, str) -> list
+        """parse_body(Source, str) -> (list, bool)
 
-The blocks up to whatever closes this directive.  Split out so that the
-name can be popped off the open list however this returns.
+The blocks up to whatever closes this directive, and whether that was a
+heading.  Split out so that the name can be popped off the open list
+however this returns.
+
+The second half is for a stray '@end' to know what it missed (see
+find_conditional_closed_by_heading()), and has to be recorded here: the
+line after a directive is a heading as well when its own '@end' closed it
+directly above one.
 """
         children = []
         while not source.exhausted:
@@ -2233,14 +2267,14 @@ name can be popped off the open list however this returns.
                 break
 
             if HEADING_LINE_RE.match(line):
-                break                       # closed by the frame boundary
+                return children, True       # closed by the frame boundary
 
             block = parse_one_block(source)
             if block is None:
                 break
             children.append(block)
 
-        return children
+        return children, False
 
 
 ###########################################
@@ -2304,14 +2338,31 @@ hand.  It renders as nothing, and says so on stderr.
 
 
 class StrayDirectiveEnd(marko.block.BlockElement):
-    """An '@end' with nothing open; reported and dropped rather than printed."""
+    """An '@end' with nothing open; reported and dropped rather than printed.
+
+The commonest way to write one is to wrap a slide in a conditional:
+'@ifnot handout' above its heading, '@end ifnot' below its body.  The
+heading closes the conditional before the slide begins, so the slide is in
+both builds, and this '@end' is the first line that can tell.  It is also
+the one line that is right, so when that is what happened it names the
+conditional too -- see split_slides(), which is where the slide before
+and the slide after are both in hand.
+"""
 
     priority = 9
     breaks_paragraph = True
 
+    #: the '@if' or '@ifnot' this was meant to close, when a heading closed
+    #: it first; set by split_slides()
+    closed_by_heading = None
+
     def __init__(self, text):
         self.text = text
         self.children = []
+
+    @property
+    def name(self):
+        return DIRECTIVE_END_RE.match(self.text).group('name')
 
     @classmethod
     def match(cls, source):
@@ -2539,16 +2590,25 @@ What '@if' and '@ifnot', or the slide keys of the same names, make of the
 variable they name: whether it is set, read as every other flag is, and
 the other way round for 'ifnot'.
 
+A '!' in front of the name turns the question round, so '@if !handout' is
+'@ifnot handout'.  It used to be read as part of the name, and a variable
+called '!handout' is never set, so the contents were dropped from both
+builds without a word -- the spelling people reach for first, failing
+silently.  Each further '!' turns it round again.
+
 A conditional naming nothing cannot be a question, so it is reported, and
 does not hold -- whatever it guards is dropped, which is what an '@if'
 with no variable has always done.
 """
         variable = scalar(variable if variable is not None else '')
+        wanted = CONDITIONAL_DIRECTIVES[name]
+        while variable.startswith('!'):
+            variable = variable[1:].lstrip()
+            wanted = not wanted
         if not variable:
             print('%s: warning: %s with no variable named'
                   % (PROG, name), file=sys.stderr)
             return False
-        wanted = CONDITIONAL_DIRECTIVES[name]
         return as_bool(self.metadata.get(variable), False) is wanted
 
     def split_slides(self, children):
@@ -2564,6 +2624,10 @@ thematic break starts a frame with no title.
 
         for child in children:
             level = heading_level(child)
+            if level is not None:
+                self.check_block_before_heading(slides, child)
+            elif child.get_type() == 'StrayDirectiveEnd' and slides:
+                self.find_conditional_closed_by_heading(slides, child)
             if level is not None and level < self.slide_level:
                 slides.append(('section', child, [], {}))
                 frame = None
@@ -2587,6 +2651,57 @@ thematic break starts a frame with no title.
                 frame.append(child)
 
         return slides
+
+    def find_conditional_closed_by_heading(self, slides, end):
+        """find_conditional_closed_by_heading(list, StrayDirectiveEnd) -> None
+
+Gives a stray '@end' the conditional it was written for, when a heading
+closed that conditional first: the '@end' is on the slide the heading
+started, and the conditional is the last thing on the slide before it.
+Looking no further than that is what keeps the hint from landing on an
+'@end' that has nothing to do with it, slides away.
+"""
+        if len(slides) < 2 or slides[-1][1] is None:
+            return                      # this slide was not begun by a heading
+        if end.name not in (None, 'if', 'ifnot'):
+            return
+        before = [node for node in slides[-2][2]
+                  if node.get_type() != 'BlankLine']
+        if not before or before[-1].get_type() != 'Directive':
+            return
+        conditional = before[-1]
+        if conditional.name in CONDITIONAL_DIRECTIVES \
+                and conditional.closed_by_heading \
+                and end.name in (None, conditional.name):
+            end.closed_by_heading = conditional
+
+    def check_block_before_heading(self, slides, heading):
+        """check_block_before_heading(list, Element) -> None
+
+Reports a slide block with nothing under it but the heading that comes
+next.  The block *replaces* a heading -- both start a slide -- so written
+above one it declares a slide of its own, an empty one, and everything it
+says is said about that: the title, the options, and an 'ifnot: handout'
+that was meant to drop the slide below and drops only the empty one.
+
+A block that opens a sectioning level is exempt.  Standing alone above the
+first slide of the section is what it is for, and a section with nothing
+else in it renders no frame at all.
+"""
+        if not slides:
+            return
+        _, previous, nodes, meta = slides[-1]
+        if previous is not None or not meta:
+            return                  # not a block's slide
+        if any(level in meta for level in ('part', 'section', 'subsection')):
+            return
+        if any(node.get_type() != 'BlankLine' for node in nodes):
+            return
+        print("%s: warning: the slide block above '%s' has nothing under it"
+              ' but that heading, which starts a slide of its own; put the'
+              " title in the block's 'title:' instead of a heading"
+              % (PROG, self.render_children(heading).strip() or '#'),
+              file=sys.stderr)
 
     def render_frame(self, heading, nodes, meta=None):
         """render_frame(Element or None, [Element], dict) -> str"""
@@ -2898,8 +3013,15 @@ inside a dropped branch says nothing either.
         return ''
 
     def render_stray_directive_end(self, element):
-        print("%s: warning: '%s' with nothing open" % (PROG, element.text),
-              file=sys.stderr)
+        message = "'%s' with nothing open" % element.text
+        conditional = element.closed_by_heading
+        if conditional is not None:
+            message += ("; a heading closed '@%s %s' before it, and a "
+                        "conditional cannot span slides -- to leave out a "
+                        "whole slide, give it a '===' block with '%s:'"
+                        % (conditional.name, conditional.text.strip(),
+                           conditional.name))
+        print('%s: warning: %s' % (PROG, message), file=sys.stderr)
         return ''
 
     def render_mismatched_directive_end(self, element):

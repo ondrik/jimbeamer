@@ -356,7 +356,7 @@ reach at all — **a slide with no title that still needs configuring**.
 | `options` | frame options, a list or one string |
 | `itemsep` | the space between list items; one length, or one per nesting level |
 | `part`, `section`, `subsection` | open that sectioning level, as `{.section}` does |
-| `if`, `ifnot` | keep the slide only when a variable is set, or only when it is not |
+| `if`, `ifnot` | keep the slide only when a variable is set, or only when it is not; `!` in front turns it round |
 
 **A block is only a block when it says something.** The lines between `===`
 and `---` must be unbroken by a blank line, must parse as a YAML mapping, and
@@ -586,6 +586,9 @@ $ jimbeamer deck.md -o screen.tex
 $ jimbeamer deck.md -V handout=true -o handout.tex
 ```
 
+A `!` in front of the variable turns the question round, so `@if !handout`
+is `@ifnot handout`, and `@ifnot !handout` is `@if handout`.
+
 The branch not taken is not rendered at all, so nothing in it is reported
 and nothing in it reaches the output. Like every other directive, these are
 closed by `@end` (`@end if`, `@end ifnot`) and by any heading — which means
@@ -607,16 +610,24 @@ ifnot: handout
 ```
 
 The slide is in the screen build and not in the handout: no frame, and no
-empty one in its place. `if:` is the other way round, and given both, a
-slide is kept only when both hold. Everything the block declares goes with
-the slide, a `section:` included, and nothing on it is rendered, so nothing
-on it is reported either.
+empty one in its place. `if:` is the other way round, and `if: !handout`
+means the same as `ifnot: handout` — no quotes needed, though YAML would
+otherwise read the `!` as a tag. Given both keys, a slide is kept only when
+both hold. Everything the block declares goes with the slide, a `section:`
+included, and nothing on it is rendered, so nothing on it is reported
+either.
 
 The block *replaces* the slide's heading rather than sitting above one — a
 heading starts a slide of its own — so a dropped slide's title goes in
-`title:`. Wrapping a slide in `@ifnot handout` ... `@end ifnot` does not
-work: the heading closes the conditional before the slide begins, the slide
-stays in the handout, and the `@end ifnot` is reported as closing nothing.
+`title:`. Two mistakes here are reported on stderr, since each leaves the
+slide in the handout:
+
+* **A block directly above a heading** declares an empty slide of its own,
+  and drops only that.
+* **Wrapping a slide in `@ifnot handout` ... `@end ifnot`** does not work
+  either: the heading closes the conditional before the slide begins. The
+  `@end ifnot` then has nothing to close, and its warning names the
+  conditional the heading closed.
 
 `@note`, `@alert`, `@only`, `@uncover`, `@visible` and `@invisible` emit
 `\note{...}` and friends rather than an environment. **The argument on the
