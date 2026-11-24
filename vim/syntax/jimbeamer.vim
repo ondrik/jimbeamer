@@ -92,7 +92,7 @@ syn region jimbeamerSlideMeta matchgroup=jimbeamerMetaFence
 syn match jimbeamerMetaKey /^\s*[A-Za-z][-A-Za-z0-9_]*\ze\s*:/ contained
 " the keys a slide understands, told apart from one it will warn about
 syn match jimbeamerSlideKey
-      \ /^\s*\%(title\|label\|options\|itemsep\|part\|section\|subsection\)\ze\s*:/
+      \ /^\s*\%(title\|label\|options\|itemsep\|part\|section\|subsection\|ifnot\|if\)\ze\s*:/
       \ contained
 syn match jimbeamerMetaComment /#.*$/ contained
 " '%' comments a metadata line too -- YAML has no comment this format could
