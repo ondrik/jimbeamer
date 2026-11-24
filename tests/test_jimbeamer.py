@@ -2655,6 +2655,151 @@ slide is dropped the way an '@if' with no variable drops its contents."""
     assert 'hidden' not in result
 
 
+###########################################
+# '!' in front of a conditional's variable
+###########################################
+
+@pytest.mark.parametrize('line, handout, taken', [
+    pytest.param('@if !handout', 'false', True, id='if-not-unset'),
+    pytest.param('@if !handout', 'true', False, id='if-not-set'),
+    pytest.param('@ifnot !handout', 'true', True, id='ifnot-not-set'),
+    pytest.param('@ifnot !handout', 'false', False, id='ifnot-not-unset'),
+    pytest.param('@if !!handout', 'true', True, id='twice'),
+    pytest.param('@if ! handout', 'false', True, id='space-after'),
+])
+def test_a_bang_turns_a_conditional_round(convert, line, handout, taken):
+    """'@if !handout' is '@ifnot handout'.  It used to look up a variable
+named '!handout', which is never set, so the contents were dropped from
+both builds and nothing was said."""
+    name = line.split()[0][1:]
+    result = convert('---\ntitle: T\nhandout: %s\n---\n\n# S\n\n'
+                     '%s\nbranch-alpha\n@else\nbranch-beta\n@end %s\n'
+                     % (handout, line, name))
+    assert ('branch-alpha' in result) is taken
+    assert ('branch-beta' in result) is not taken
+
+
+def test_a_bang_alone_names_no_variable(convert, capsys):
+    """A '!' with nothing after it is a question about nothing."""
+    result = convert('---\ntitle: T\n---\n\n# S\n\n@if !\nx-branch\n'
+                     '@end if\n')
+    assert 'with no variable named' in capsys.readouterr().err
+    assert 'x-branch' not in result
+
+
+@pytest.mark.parametrize('value', ['!handout', "'!handout'"],
+                         ids=['bare', 'quoted'])
+def test_a_slide_block_takes_a_bang_too(convert, value):
+    """Bare, YAML reads '!handout' as a tag, which the safe loader refused
+-- and a block that does not load is not a block, so the settings were
+typeset on the slide as prose.  SlideLoader reads the tag back as text."""
+    source = ('# S\n\nx\n\n===\nif: %s\n---\n\nscreen-slide\n' % value)
+    assert 'screen-slide' in convert(source)
+    result = convert(source, variable={'handout': 'true'})
+    assert 'screen-slide' not in result
+    assert 'if:' not in result
+
+
+def test_a_slide_block_keeps_any_other_bang_as_text(jimbeamer):
+    """The loader is the slide block's, so a '!' starting any value is the
+text it was written as -- where it used to cost the whole block."""
+    meta = jimbeamer.load_slide_metadata('title: !important stuff\n')
+    assert meta == {'title': '!important stuff'}
+
+
+def test_a_slide_block_still_refuses_a_tagged_list(jimbeamer):
+    """Only a scalar is read back as text: there is no text to read a
+tagged list back as, so the block is still not a block."""
+    assert jimbeamer.load_slide_metadata('title: T\nif: !x [a, b]\n') is None
+
+
+###########################################
+# a conditional a heading closed, named by the '@end' meant for it
+###########################################
+
+def test_an_end_after_a_heading_names_the_conditional_it_missed(convert,
+                                                                capsys):
+    """The case that asked for it.  The heading closes '@ifnot handout'
+before the slide begins, and the '@end ifnot' below is the first line that
+can tell -- it is also the one line that is right, so it names the
+conditional and says what does span a slide."""
+    convert('# A\n\nx\n\n@ifnot handout\n# B\n\ntext\n@end ifnot\n')
+    err = capsys.readouterr().err
+    assert "'@end ifnot' with nothing open" in err
+    assert "closed '@ifnot handout'" in err
+    assert "'===' block with 'ifnot:'" in err
+
+
+def test_a_bare_end_after_a_heading_names_it_too(convert, capsys):
+    convert('# A\n\nx\n\n@if handout\n# B\n\ntext\n@end\n')
+    assert "closed '@if handout'" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize('source', [
+    pytest.param('# A\n\n@ifnot handout\n# B\n\ntext\n@end center\n',
+                 id='other-name'),
+    pytest.param('# A\n\n@if handout\nx\n\n# B\n\ny\n\n# C\n\n@end if\n',
+                 id='slides-later'),
+    pytest.param('# A\n\n@if handout\nx\n@end if\n\n# B\n\n@end if\n',
+                 id='closed-by-its-own-end'),
+    # the line after it is a heading here too, so only what the parser
+    # recorded about how it closed tells this from the case above
+    pytest.param('# A\n\n@if handout\nx\n@end if\n# B\n\n@end if\n',
+                 id='closed-by-its-own-end-above-the-heading'),
+])
+def test_an_unrelated_stray_end_is_not_given_the_hint(convert, capsys,
+                                                      source):
+    """The hint blames a conditional, so it must be the right one: an '@end'
+naming something else, one slides away, or one after a conditional its own
+'@end' closed gets the plain warning.  Getting this wrong is the bug the
+named '@end' check was written to stop -- a line blamed for a mistake
+somewhere else."""
+    convert(source)
+    err = capsys.readouterr().err
+    assert 'with nothing open' in err
+    assert 'closed' not in err
+
+
+def test_a_conditional_left_to_end_at_a_heading_says_nothing(convert,
+                                                             capsys):
+    """Legal, and documented: a heading closes every directive."""
+    convert('# A\n\n@if handout\nx\n\n# B\n\ny\n')
+    assert capsys.readouterr().err == ''
+
+
+###########################################
+# a slide block directly above a heading
+###########################################
+
+@pytest.mark.parametrize('between', ['', '\n\n'], ids=['adjacent', 'blank'])
+def test_a_block_directly_above_a_heading_is_reported(convert, capsys,
+                                                      between):
+    """The block replaces a heading, so above one it declares an empty
+slide of its own -- and an 'ifnot: handout' there drops only that, leaving
+the titled slide below in both builds."""
+    result = convert('===\nifnot: handout\n---\n%s\n# Titled\n\nbody\n'
+                     % between, variable={'handout': 'true'})
+    assert 'body' in result, 'the slide below really is kept'
+    err = capsys.readouterr().err
+    assert "slide block above 'Titled'" in err
+    assert "'title:'" in err
+
+
+@pytest.mark.parametrize('source', [
+    pytest.param('===\nsection: Part one\n---\n\n# Titled\n\nbody\n',
+                 id='opens-a-section'),
+    pytest.param('===\ntitle: T\n---\n\ncontent\n\n# Next\n\nbody\n',
+                 id='has-content'),
+    pytest.param('# A\n\nx\n\n# B\n\nbody\n', id='no-block'),
+])
+def test_a_block_with_a_reason_to_be_there_is_not_reported(convert, capsys,
+                                                           source):
+    """A block opening a section is meant to stand alone above the slide
+that begins it, and one with content of its own is a slide."""
+    convert(source)
+    assert capsys.readouterr().err == ''
+
+
 def test_directive_heading_closes_it(render):
     """No environment may reach past the end of its frame."""
     body = render('# One\n\n@column 0.5\ntext\n\n# Two\n\nmore\n')
