@@ -2568,6 +2568,93 @@ def test_conditional_with_no_variable_is_reported(convert, capsys):
     assert '\\begin{if}' not in result
 
 
+###########################################
+# 'if:' and 'ifnot:' in a slide's block: a whole slide that depends on a
+# variable
+###########################################
+
+@pytest.mark.parametrize('key, handout, kept', [
+    pytest.param('ifnot', 'true', False, id='ifnot-set'),
+    pytest.param('ifnot', 'false', True, id='ifnot-unset'),
+    pytest.param('ifnot', None, True, id='ifnot-absent'),
+    pytest.param('if', 'true', True, id='if-set'),
+    pytest.param('if', 'false', False, id='if-unset'),
+    pytest.param('if', None, False, id='if-absent'),
+])
+def test_a_slide_block_keeps_or_drops_the_whole_slide(convert, key, handout,
+                                                      kept):
+    """The keys read the variable the way '@if' and '@ifnot' do, and the
+slides around the conditional one are untouched either way."""
+    meta = '' if handout is None else 'handout: %s\n' % handout
+    result = convert('---\ntitle: T\n%s---\n\n# Before\n\nbefore-slide\n\n'
+                     '===\n%s: handout\n---\n\nconditional-slide\n\n'
+                     '# After\n\nafter-slide\n' % (meta, key))
+    assert ('conditional-slide' in result) is kept
+    assert 'before-slide' in result and 'after-slide' in result
+    assert result.count('\\begin{frame}') == (3 if kept else 2)
+
+
+def test_a_slide_dropped_from_the_handout_leaves_no_empty_frame(convert,
+                                                                capsys):
+    """The case that asked for this.  '@ifnot handout' opened above a
+heading is closed by it -- a conditional lives inside one slide -- so the
+slide stayed in the handout, an empty frame appeared before it, and the
+only sign was a warning blaming the '@end ifnot' at the bottom.  The block
+speaks for the slide as a whole, and takes all of it."""
+    source = ('# Before\n\ntext\n\n'
+              '===\nifnot: handout\n---\n\n@center\n'
+              '![](fig.jpg){ height=0.95 }\n@end center\n\n'
+              '# After\n\nmore\n')
+    screen = convert(source)
+    handout = convert(source, variable={'handout': 'true'})
+    assert 'fig.jpg' in screen
+    assert screen.count('\\begin{frame}') == 3
+    assert 'fig.jpg' not in handout
+    assert handout.count('\\begin{frame}') == 2
+    assert '\\begin{frame}\n\\end{frame}' not in handout
+    assert capsys.readouterr().err == ''
+
+
+def test_a_dropped_slide_takes_its_section_with_it(convert):
+    """A block declares the slide, a 'section:' on it included, so the
+section goes too -- leaving it would open a section with nothing of its
+own in it, and a separator slide announcing it."""
+    result = convert('---\ntitle: T\nhandout: true\n---\n\n# S\n\nx\n\n'
+                     '===\nsection: Screen only\nifnot: handout\n---\n\n'
+                     'screen-slide\n')
+    assert 'Screen only' not in result
+    assert 'screen-slide' not in result
+
+
+def test_if_and_ifnot_on_one_slide_must_both_hold(convert):
+    """Two conditions, both of which have to hold, rather than the second
+quietly overriding the first."""
+    source = ('---\ntitle: T\n%s---\n\n# S\n\nx\n\n'
+              '===\nif: draft\nifnot: handout\n---\n\nconditional-slide\n')
+    assert 'conditional-slide' in convert(source % 'draft: true\n')
+    assert 'conditional-slide' not in convert(
+        source % 'draft: true\nhandout: true\n')
+    assert 'conditional-slide' not in convert(source % '')
+
+
+def test_a_dropped_slide_is_not_rendered_at_all(convert, capsys):
+    """As in a dropped '@if' branch, so a stray '@end' on a slide that is
+not in this build says nothing."""
+    result = convert('---\ntitle: T\nhandout: true\n---\n\n# S\n\nx\n\n'
+                     '===\nifnot: handout\n---\n\n@end block\nhidden\n')
+    assert 'hidden' not in result
+    assert capsys.readouterr().err == ''
+
+
+def test_a_slide_conditional_naming_nothing_is_reported(convert, capsys):
+    """Naming nothing cannot be a question, as with '@if' alone, and the
+slide is dropped the way an '@if' with no variable drops its contents."""
+    result = convert('---\ntitle: T\n---\n\n# S\n\nx\n\n'
+                     '===\ntitle: Kept out\nifnot:\n---\n\nhidden\n')
+    assert 'ifnot with no variable named' in capsys.readouterr().err
+    assert 'hidden' not in result
+
+
 def test_directive_heading_closes_it(render):
     """No environment may reach past the end of its frame."""
     body = render('# One\n\n@column 0.5\ntext\n\n# Two\n\nmore\n')

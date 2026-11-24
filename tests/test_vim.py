@@ -42,6 +42,7 @@ title: 'How to Give a Talk'
 
 ===
 title: A slide
+ifnot: handout
 nosuchkey: 1
 ---
 
@@ -252,6 +253,7 @@ def test_the_construct_is_coloured(sample, needle, group):
 def test_a_slide_key_it_knows_is_told_from_one_it_does_not(sample):
     """So a typo is visible before the converter warns about it."""
     assert 'jimbeamerSlideKey' in groups_on(sample, 'title: A slide')
+    assert 'jimbeamerSlideKey' in groups_on(sample, 'ifnot: handout')
     assert 'jimbeamerSlideKey' not in groups_on(sample, 'nosuchkey: 1')
 
 

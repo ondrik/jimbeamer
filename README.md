@@ -356,6 +356,7 @@ reach at all — **a slide with no title that still needs configuring**.
 | `options` | frame options, a list or one string |
 | `itemsep` | the space between list items; one length, or one per nesting level |
 | `part`, `section`, `subsection` | open that sectioning level, as `{.section}` does |
+| `if`, `ifnot` | keep the slide only when a variable is set, or only when it is not |
 
 **A block is only a block when it says something.** The lines between `===`
 and `---` must be unbroken by a blank line, must parse as a YAML mapping, and
@@ -590,6 +591,32 @@ and nothing in it reaches the output. Like every other directive, these are
 closed by `@end` (`@end if`, `@end ifnot`) and by any heading — which means
 a conditional lives inside a slide rather than spanning several. `@if` with
 no variable named is reported on stderr.
+
+To leave out a **whole slide**, say so in the slide's own metadata block,
+with a key of the same name:
+
+```markdown
+===
+title: The proof, built up live
+ifnot: handout
+---
+
+@center
+![](fig/proof.jpg){ height=0.95 }
+@end center
+```
+
+The slide is in the screen build and not in the handout: no frame, and no
+empty one in its place. `if:` is the other way round, and given both, a
+slide is kept only when both hold. Everything the block declares goes with
+the slide, a `section:` included, and nothing on it is rendered, so nothing
+on it is reported either.
+
+The block *replaces* the slide's heading rather than sitting above one — a
+heading starts a slide of its own — so a dropped slide's title goes in
+`title:`. Wrapping a slide in `@ifnot handout` ... `@end ifnot` does not
+work: the heading closes the conditional before the slide begins, the slide
+stays in the handout, and the `@end ifnot` is reported as closing nothing.
 
 `@note`, `@alert`, `@only`, `@uncover`, `@visible` and `@invisible` emit
 `\note{...}` and friends rather than an environment. **The argument on the

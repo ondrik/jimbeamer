@@ -150,6 +150,13 @@ options: [t]
 (a) a lettered list, from the marker alone
 (b) with **Markdown** still in the items
 
+===
+title: On the screen only
+ifnot: handout
+---
+
+* a slide the handout leaves out, by the block that declares it
+
 # Used materials from
 * Jan Strejček, Masaryk University
 * Michael Hicks, University of Maryland

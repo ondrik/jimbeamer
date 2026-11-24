@@ -506,6 +506,11 @@ DIRECTIVE_ELSE_RE = re.compile(r'[ \t]*@else[ \t]*$', re.MULTILINE)
 # when it is not.  The value is read the way every other flag is, so
 # 'false', 'no', 'off', '0' and empty are not set, and '-V handout=true'
 # works as well as the metadata block.
+#
+# The same two names are keys of a slide's own block, where they keep or
+# drop the whole slide: a heading closes a directive, so '@ifnot' cannot
+# reach past the slide it is written in, and the block is the one thing
+# that speaks for a slide as a whole.
 CONDITIONAL_DIRECTIVES = {'if': True, 'ifnot': False}
 
 # Directives where repeating the name closes the previous one instead of
@@ -569,7 +574,8 @@ SLIDE_METADATA_RE = re.compile(
 # Keys a slide's metadata block understands.  Anything else is ignored, since
 # a slide has no template to pass it to.
 SLIDE_METADATA_KEYS = ('title', 'label', 'options', 'itemsep',
-                       'part', 'section', 'subsection')
+                       'part', 'section', 'subsection') + tuple(
+                           CONDITIONAL_DIRECTIVES)
 
 # Metadata values that become prose on a slide, and are therefore parsed as
 # Markdown.  Everything else -- a theme, header-includes, a colour -- reaches
@@ -2511,9 +2517,39 @@ happens inside `inline code', where the text is meant to be literal.
                 # a heading above the slide level is a section already; a
                 # sectioning class on it only says which level
                 parts.append('\\%s{%s}\n' % (sectioning or 'section', title))
-            else:
+            elif self.slide_wanted(meta):
                 parts.append(self.render_frame(heading, nodes, meta))
         return '\n'.join(parts)
+
+    def slide_wanted(self, meta):
+        """slide_wanted(dict) -> bool
+
+Whether a slide's 'if:' and 'ifnot:' let it through.  Both may be given,
+and then both have to hold.  A slide that is dropped goes with everything
+its block declares -- a 'section:' on it included -- and is not rendered
+at all, so nothing inside it is reported either, as in a dropped '@if'.
+"""
+        return all(self.condition_holds(name, meta[name])
+                   for name in CONDITIONAL_DIRECTIVES if name in meta)
+
+    def condition_holds(self, name, variable):
+        """condition_holds(str, object) -> bool
+
+What '@if' and '@ifnot', or the slide keys of the same names, make of the
+variable they name: whether it is set, read as every other flag is, and
+the other way round for 'ifnot'.
+
+A conditional naming nothing cannot be a question, so it is reported, and
+does not hold -- whatever it guards is dropped, which is what an '@if'
+with no variable has always done.
+"""
+        variable = scalar(variable if variable is not None else '')
+        if not variable:
+            print('%s: warning: %s with no variable named'
+                  % (PROG, name), file=sys.stderr)
+            return False
+        wanted = CONDITIONAL_DIRECTIVES[name]
+        return as_bool(self.metadata.get(variable), False) is wanted
 
     def split_slides(self, children):
         """split_slides([Element]) -> [(str, Element or None, [Element], dict)]
@@ -2817,14 +2853,13 @@ What '@if name' holds, when `name' is set in the metadata, and what
 are not rendered at all in that case, so a '@pausex' or a stray '@end'
 inside a dropped branch says nothing either.
 """
-        variable = element.text.strip()
-        if not variable:
-            print('%s: warning: %s with no variable named'
-                  % (PROG, element.name), file=sys.stderr)
+        if not element.text.strip():
+            # reported by condition_holds(); and with nothing named there is
+            # no branch to choose, so neither is rendered
+            self.condition_holds(element.name, '')
             return ''
 
-        wanted = CONDITIONAL_DIRECTIVES[element.name]
-        taken = as_bool(self.metadata.get(variable), False) is wanted
+        taken = self.condition_holds(element.name, element.text)
 
         # '@else' divides the children; without one the second branch is
         # empty, which is what '@if' alone has always meant.
