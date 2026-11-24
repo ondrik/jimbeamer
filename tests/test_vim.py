@@ -101,6 +101,8 @@ a citation [\\[Clarke 81\\]]{.hlvio} inside a span
 
 ==highlighted== and [red]{.hlrd}
 
+~~struck out~~ but Fig.~1 is a tie
+
 a `code span`, ``one with a ` inside`` and one that `wraps over
 the line break` too
 
@@ -240,6 +242,7 @@ def example(tmp_path_factory):
     pytest.param('(ii) a roman', 'jimbeamerListMarker', id='roman'),
     pytest.param('2. a plain one', 'jimbeamerListMarker', id='plain-ordered'),
     pytest.param('==highlighted==', 'jimbeamerHighlight', id='highlight'),
+    pytest.param('~~struck out~~', 'jimbeamerStrike', id='strikethrough'),
     pytest.param('[red]{.hlrd}', 'jimbeamerSpan', id='span'),
     pytest.param('![A caption]', 'jimbeamerImage', id='image'),
 ])

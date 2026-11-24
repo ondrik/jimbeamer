@@ -1524,6 +1524,7 @@ def test_render_inline_code_is_escaped(render):
     pytest.param('\\[x\\]', 'latex-display-maths'),
     pytest.param('![alt](f.png)', 'an-image'),
     pytest.param('==hi==', 'a-highlight'),
+    pytest.param('~~gone~~', 'a-strikethrough'),
     pytest.param('[t]{.hlrd}', 'a-span'),
 ])
 def test_a_code_span_outranks_what_is_written_inside_it(render, inside, id_):
@@ -1725,6 +1726,48 @@ def test_render_link(render):
     """Coloured by default, so a link can be told from the prose."""
     body = render('# S\n\n[text](http://x.org)\n')
     assert '\\href{http://x.org}{\\textcolor{blue}{\\jblink{text}}}' in body
+
+
+###########################################
+# Strikethrough
+###########################################
+
+def test_strikethrough(render):
+    assert '\\sout{like this}' in render('# S\n\n~~like this~~\n')
+
+
+@pytest.mark.parametrize('source, expected', [
+    pytest.param('~~**bold**~~', '\\sout{\\textbf{bold}}', id='bold-inside'),
+    pytest.param('**~~bold~~**', '\\textbf{\\sout{bold}}', id='bold-outside'),
+    pytest.param('==~~both~~==', '\\hlbl{\\sout{both}}', id='in-a-highlight'),
+    pytest.param('~~$x_1$~~', '\\sout{$x_1$}', id='maths-inside'),
+    pytest.param('~~\\ldots~~', '\\sout{\\ldots}', id='a-macro-inside'),
+    pytest.param('~~Fig.~1~~', '\\sout{Fig.~1}', id='a-tie-inside'),
+    pytest.param('~~a~~ and ~~b~~', '\\sout{a} and \\sout{b}', id='two'),
+    pytest.param('# ~~old~~ new', '{\\sout{old} new}', id='in-a-heading'),
+])
+def test_strikethrough_composes(render, source, expected):
+    text = source if source.startswith('#') else '# S\n\n' + source
+    assert expected in render(text + '\n')
+
+
+@pytest.mark.parametrize('source', [
+    pytest.param('Fig.~1 and Table~2', id='single-ties'),
+    pytest.param('a ~~ b ~~ c', id='spaced'),
+    pytest.param('$a~~b~~c$', id='inside-maths'),
+    pytest.param('`~~x~~`', id='inside-code'),
+    pytest.param('a ~~b', id='unclosed'),
+    pytest.param('~~~x~~~', id='a-run-of-three'),
+])
+def test_strikethrough_leaves_other_tildes_alone(render, source):
+    """GFM reads '~x~' as well; here a single '~' is LaTeX's tie, so only
+the doubled form is taken."""
+    assert '\\sout' not in render('# S\n\n%s\n' % source)
+
+
+def test_template_can_strike_out_without_ulem(template):
+    """ulem is optional, so there has to be a fallback for '\\sout' too."""
+    assert '\\providecommand{\\sout}' in without_comments(template)
 
 
 ###########################################
@@ -3037,6 +3080,11 @@ def test_a_highlight_may_cross_a_line_break(render):
     assert '\\hlbl{text that wraps\nacross a line}' in body
 
 
+def test_a_strikethrough_may_cross_a_line_break(render):
+    body = render('# S\n\nsome ~~text that wraps\nacross a line~~ here\n')
+    assert '\\sout{text that wraps\nacross a line}' in body
+
+
 def test_a_span_does_not_cross_a_paragraph(render):
     """Only a paragraph's own text is searched, so there is nothing to run
 past -- but it is worth pinning."""
@@ -3173,6 +3221,7 @@ def test_slide_metadata_itemsep_does_not_leak_to_the_next_slide(render):
     pytest.param('Part $x_1$', 'Part $x_1$', id='maths'),
     pytest.param('\\textbf{raw}', '\\textbf{raw}', id='raw-latex'),
     pytest.param('==hot==', '\\hlbl{hot}', id='highlight'),
+    pytest.param('~~old~~ new', '\\sout{old} new', id='strikethrough'),
     # CommonMark forbids intraword '_' emphasis, so a name survives whole;
     # only a delimited one is emphasis, as it already was in a heading
     pytest.param('a_b_c', 'a_b_c', id='underscore-intraword'),
@@ -3790,6 +3839,7 @@ def test_compiles_everything_we_emit(tmp_path, script):
         * maths: $pc_1 \\land pc_2$ and $\\mathbb{T}$
         \\pausex
         * a~non-breaking space
+        * ~~struck out~~, ~~**bold** $x$ and Fig.~1~~
 
         # A listing {.fragile}
         ```C
@@ -3837,6 +3887,39 @@ def test_the_deck_compiles(tmp_path, script, deck, deck_path):
     assert errors == [], '\n'.join(errors)
     assert (tmp_path / 'deck.pdf').exists()
     assert re.search(r'Output written .* \((\d+) pages', log)
+
+
+@pdflatex_needed
+def test_the_deck_compiles_without_ulem(tmp_path, script, template):
+    """The fallbacks, built as a lean installation would build them.  Both
+used to sit inside the \\IfFileExists, where '#1' is an illegal parameter
+number, so the build failed on exactly the installations they were for --
+and nothing here had ever compiled that branch.  The '\\sout' one also
+drew its line on a line of its own when it began a paragraph; reading the
+text back is what would show that."""
+    lean = template.replace('\\IfFileExists{ulem.sty}',
+                            '\\IfFileExists{no-such-ulem.sty}')
+    assert lean != template
+    (tmp_path / 'lean.tpl').write_text(lean, encoding='utf-8')
+    (tmp_path / 'deck.md').write_text(
+        '---\ntitle: T\n---\n\n# S ~~old~~\n\n~~**bold** $x_1$~~ and '
+        '~~Fig.~1~~, [a link](https://example.org)\n', encoding='utf-8')
+    done = run(script, str(tmp_path / 'deck.md'), '-t',
+               str(tmp_path / 'lean.tpl'), '-o', str(tmp_path / 'deck.tex'))
+    assert done.returncode == 0, done.stderr
+    subprocess.run(['pdflatex', '-interaction=nonstopmode', 'deck.tex'],
+                   cwd=tmp_path, capture_output=True)
+    log = (tmp_path / 'deck.log').read_text(encoding='utf-8',
+                                             errors='replace')
+    errors = [line for line in log.splitlines() if line.startswith('!')]
+    assert errors == [], '\n'.join(errors)
+    assert 'ulem.sty' not in log
+    if shutil.which('pdftotext') is None:     # poppler-utils; CI lacks it
+        return
+    done = subprocess.run(['pdftotext', '-layout', 'deck.pdf', '-'],
+                          cwd=tmp_path, capture_output=True, encoding='utf-8')
+    if done.returncode == 0:
+        assert 'bold x1 and Fig. 1' in ' '.join(done.stdout.split())
 
 
 ###########################################

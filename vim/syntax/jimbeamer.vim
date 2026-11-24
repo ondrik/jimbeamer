@@ -112,7 +112,8 @@ syn region jimbeamerMetaString start=/"/ skip=/\\"/ end=/"/ oneline contained
 " A heading, with the attribute list jimbeamer reads off the end of it.
 syn match jimbeamerHeading /^\s\{0,3}#\{1,6}\%([ \t].*\)\=$/
       \ contains=jimbeamerAttributes,jimbeamerMath,jimbeamerMathParen,
-      \ jimbeamerInlineCode,jimbeamerHighlight,jimbeamerLatexMacro
+      \ jimbeamerInlineCode,jimbeamerHighlight,jimbeamerStrike,
+      \ jimbeamerLatexMacro
 
 syn match jimbeamerAttributes /{[^}]*}[ \t]*$/ contained
       \ contains=jimbeamerClass,jimbeamerLabel,jimbeamerOption
@@ -227,6 +228,12 @@ syn region jimbeamerMathParen start=/\\(/ end=/\\)/ oneline keepend
 syn match jimbeamerHighlight
       \ /\%(=\)\@<!==[^= \t]\_[^=]\{-}[^= \t]==\%(=\)\@!/
 syn match jimbeamerHighlight /\%(=\)\@<!==[^= \t]==\%(=\)\@!/
+
+" ~~like this~~ is struck out, by the same rules; a single '~' is a tie, and
+" a tie inside is allowed.
+syn match jimbeamerStrike
+      \ /\%(\~\)\@<!\~\~[^~ \t]\%([^~]\|\~\~\@!\)\{-}[^~ \t]\~\~\%(\~\)\@!/
+syn match jimbeamerStrike /\%(\~\)\@<!\~\~[^~ \t]\~\~\%(\~\)\@!/
 
 " [text]{.macro}: the class is the macro name.
 " As the highlight, the text may wrap; the ']' and the '{' stay adjacent.
@@ -402,6 +409,7 @@ hi def link jimbeamerMathDisplay      Number
 hi def link jimbeamerMathBracket      Number
 hi def link jimbeamerMathParen        Number
 hi def link jimbeamerHighlight        Special
+hi def link jimbeamerStrike           Special
 hi def link jimbeamerSpan             Type
 hi def link jimbeamerSpanText         Normal
 hi def link jimbeamerImage            Underlined

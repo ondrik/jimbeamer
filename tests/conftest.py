@@ -64,6 +64,7 @@ header-includes: |
 
 # Lists and text
 * users try ==**input vectors**==, trying to break a program
+* ~~trying every input~~ is hopeless, ~~Fig.~1~~ notwithstanding
 * accented prose reaches the PDF: *naïve*, *café*, *Köln*
 * [not true]{.hlrd}, and \hlbl{the macro spelled out} still works
 * a link whose URL has a fragment and an escape:

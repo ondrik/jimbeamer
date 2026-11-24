@@ -93,7 +93,9 @@ the deck that wants colour *without* minted's dependency: a richer `\lstset`
 in the template (keyword, comment and string styles), which is the cheap
 version, or per-language styling, which is the faithful one.
 
-**`strikethrough` and footnotes.** Marko's GFM elements would make both cheap.
+**Footnotes.** Marko's GFM element would make them cheap. Strikethrough,
+listed here with them, is built, but by hand: GFM's also reads `~x~`, which
+is a tie in LaTeX.
 
 ## Open questions
 
