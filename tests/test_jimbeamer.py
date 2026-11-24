@@ -3914,6 +3914,8 @@ text back is what would show that."""
     errors = [line for line in log.splitlines() if line.startswith('!')]
     assert errors == [], '\n'.join(errors)
     assert 'ulem.sty' not in log
+    if shutil.which('pdftotext') is None:     # poppler-utils; CI lacks it
+        return
     done = subprocess.run(['pdftotext', '-layout', 'deck.pdf', '-'],
                           cwd=tmp_path, capture_output=True, encoding='utf-8')
     if done.returncode == 0:
