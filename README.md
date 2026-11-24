@@ -773,6 +773,14 @@ sit against whitespace, so `a == b` stays arithmetic, and a run of three or
 more `=` is left alone, so a setext underline is safe. It may run across a
 line break, as a bracketed span may.
 
+**Strikethrough.** `~~like this~~` becomes `\sout{like this}`, from `ulem`,
+which breaks across a line; the delimiters follow the highlight's rules. Only
+the doubled form is read: a single `~` is a tie in LaTeX, and
+`Fig.~1 and Table~2` must not be struck out between them. A tie inside is
+fine, so `~~Fig.~1~~` is one span. The other side of that: two doubled ties
+in one paragraph, as in `see~~\cite{a} and~~\cite{b}`, are read as a span —
+write one `~`, which is what LaTeX sees anyway.
+
 **Bracketed spans.** `[text]{.hlrd}` becomes `\hlrd{text}` — the class *is*
 the macro name, so any macro of your own works without being registered, and
 several nest with the first outermost: `[x]{.hlbl .hlgr}` is
@@ -924,8 +932,8 @@ Two more consequences of the same rule:
   with a tag starts an HTML block, and the whole block goes with its text, up
   to the next blank line — a pasted `<div>` or HTML table disappears without a
   word. HTML entities are not decoded either: `&amp;` stays as it is.
-* There is no strikethrough, superscript or subscript. `~~x~~`, `H~2~O` and
-  `x^2^` pass through and break the build or the spacing.
+* There is no superscript or subscript. `H~2~O` and `x^2^` pass through
+  and break the build or the spacing.
 
 
 ## Traps

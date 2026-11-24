@@ -124,15 +124,22 @@
 
 %% normalem, or ulem takes \emph over and sets emphasis underlined.
 %% \uline is used rather than \underline because it breaks across a line,
-%% which a link whose text is a phrase needs.
+%% which a link whose text is a phrase needs.  \sout is what ~~this~~
+%% becomes, for the same reason.
 %%
 %% Guarded, because ulem lives in texlive-plain-generic on Debian and a
 %% lean installation may not have it.  Loading it unconditionally would
 %% make every deck need it, links or no links; the fallback gives up the
 %% line breaking and keeps the document compiling.
-\IfFileExists{ulem.sty}
-  {\usepackage[normalem]{ulem}}
-  {\providecommand{\uline}[1]{\underline{#1}}}
+%%
+%% The fallbacks sit outside the \IfFileExists, and \providecommand leaves
+%% ulem's own alone.  Inside its argument a '#1' is an "Illegal parameter
+%% number" -- the fallback failed the build on exactly the installations
+%% it was written for, and nothing compiled it there until 0.3.0 was out.
+\IfFileExists{ulem.sty}{\usepackage[normalem]{ulem}}{}
+\providecommand{\uline}[1]{\underline{#1}}
+\providecommand{\sout}[1]{%
+  \leavevmode\setbox0\hbox{#1}\rlap{\rule[0.5ex]{\wd0}{0.4pt}}\box0}
 
 %% How a link is marked, besides its colour.  The renderer wraps every
 %% \href, \hyperlink and \url in this, so it cannot be left undefined.

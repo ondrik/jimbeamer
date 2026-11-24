@@ -1527,6 +1527,24 @@ is never mistaken for one.
     parse_children = True
 
 
+class Strikethrough(marko.inline.InlineElement):
+    """Struck-out text, '~~like this~~', as in GitHub's Markdown.
+
+Becomes `\\sout`, from ulem.  The delimiters follow the highlight's rules:
+not against whitespace, and not a run of three, which is a fence.  Only the
+doubled form is read -- GFM also takes '~x~', but in a LaTeX deck a single
+'~' is a tie, and 'Fig.~1 and Table~2' would be struck out between them.
+A tie inside is kept, so '~~Fig.~1~~' is one span.
+"""
+
+    # the highlight's rank, for the same reasons: above emphasis, below
+    # code spans and maths
+    priority = 6
+    pattern = re.compile(
+        r'(?<![~\\])~~(?![~\s])((?:[^~]|~(?!~))+?)(?<!\s)~~(?!~)')
+    parse_children = True
+
+
 class Span(marko.inline.InlineElement):
     """A bracketed span with attributes, '[text]{.hlrd}'.
 
@@ -2326,7 +2344,7 @@ The elements above, as an extension to register with marko.
 """
     return marko.helpers.MarkoExtension(
         elements=[MathDisplay, LatexMathDisplay, LatexMath, Math, Graphic,
-                  Span, Highlight, RawLatexInline, CodeSpan,
+                  Span, Highlight, Strikethrough, RawLatexInline, CodeSpan,
                   RawLatexEnvironment, RawLatexMacroLine, SlideMetadata,
                   List, ListItem, Paragraph, CodeBlock, FencedCode,
                   Directive, DirectiveElse, StrayDirectiveEnd])
@@ -2949,6 +2967,9 @@ is a Literal and never reaches this either, which is the way out.
 
     def render_highlight(self, element):
         return '\\%s{%s}' % (self.highlight, self.render_children(element))
+
+    def render_strikethrough(self, element):
+        return '\\sout{%s}' % self.render_children(element)
 
     def render_span(self, element):
         text = self.render_children(element)
